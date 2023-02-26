@@ -1,0 +1,5 @@
+netcdf4
+xarray
+scipy
+scikit-learn
+matplotlib
