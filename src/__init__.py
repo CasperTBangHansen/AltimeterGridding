@@ -1,0 +1,1 @@
+from ._rbfinterp import RBFInterpolator
