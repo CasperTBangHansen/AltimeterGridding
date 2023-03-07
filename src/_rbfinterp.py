@@ -45,7 +45,7 @@ _NAME_TO_MIN_DEGREE = {
     "thin_plate_spline": 1,
     "cubic": 1,
     "quintic": 2
-    }
+}
 
 
 def _monomial_powers(ndim, degree):
@@ -522,49 +522,16 @@ class RBFInterpolator:
                 self._coeffs,
                 memory_budget=memory_budget)
         else:
-            # Get the indices of the k nearest observation points to each
-            # evaluation point.
-            _, yindices = self._tree.query(x, self.neighbors)
-            if self.neighbors == 1:
-                # `KDTree` squeezes the output when neighbors=1.
-                yindices = yindices[:, None]
+            # Setup coordinate
+            x, yindices, xindices, valid_yindices = self.setup_coordinates(x)
 
-            # 
-            min_points = 0 if self.min_points is None else self.min_points
-            min_points = self.neighbors - min_points
+            # Feature scale data
 
-            # Remove grid points for x and y if x is too far away from y.
-            valid_yindices = np.ones(yindices.shape[0], dtype=np.bool_)
-            x_latlon = x[:, self.latlon_columns]
-            y_latlon = self.y[:, self.latlon_columns]
-            for i, y_i in enumerate(yindices):
-                distance = haversine_vector(
-                    x_latlon[i],
-                    y_latlon[y_i],
-                    comb=True
-                )
-                if (distance < self.max_distance).sum() <= min_points:
-                    valid_yindices[i] = False
-            x = x[valid_yindices]
-            yindices = yindices[valid_yindices]
-
-            # Multiple evaluation points may have the same neighborhood of
-            # observation points. Make the neighborhoods unique so that we only
-            # compute the interpolation coefficients once for each
-            # neighborhood.
-            yindices = np.sort(yindices, axis=1)
-            yindices, inv = np.unique(yindices, return_inverse=True, axis=0)
-
-
-            # `inv` tells us which neighborhood will be used by each evaluation
-            # point. Now we find which evaluation points will be using each
-            # neighborhood.
-            xindices = [[] for _ in range(len(yindices))]
-            for i, j in enumerate(inv):
-                xindices[j].append(i)
-
+            # Setup output
             out = np.zeros((nx, self.d.shape[1]), dtype=float)
             out[~valid_yindices] = np.nan
+
+            # Interpolate data
             sub_out = np.zeros((x.shape[0], self.d.shape[1]), dtype=float)
             for xidx, yidx in zip(xindices, yindices):
                 # `yidx` are the indices of the observations in this
@@ -593,3 +560,59 @@ class RBFInterpolator:
         out = out.view(self.d_dtype)
         out = out.reshape((nx, ) + self.d_shape)
         return out
+
+    def feature_scale(self, x, yindices, latlon_distances, grid_time):
+        # Max distance in lat lon
+        # feature scale time to [0, max_distance]
+        # add grid_time = [grid_time, grid_time+max_distance]
+        
+        # Push time to zero
+        x[:, -1] -= grid_time
+
+
+    def setup_coordinates(self, x):
+        """Find valid x_coordinates and y_indices"""
+        # Get the indices of the k nearest observation points to each
+        # evaluation point.
+        distances, yindices = self._tree.query(x, self.neighbors)
+        if self.neighbors == 1:
+            # `KDTree` squeezes the output when neighbors=1.
+            yindices = yindices[:, None]
+            distances = distances[:, None]
+
+        min_points = 0 if self.min_points is None else self.min_points
+        min_points = self.neighbors - min_points
+
+        # Remove grid points for x and y if x is too far away from y.
+        valid_yindices = np.ones(yindices.shape[0], dtype=np.bool_)
+        x_latlon = x[:, self.latlon_columns]
+        y_latlon = self.y[:, self.latlon_columns]
+        for i, y_i in enumerate(yindices):
+            distance = haversine_vector(
+                x_latlon[i],
+                y_latlon[y_i],
+                comb=True
+            )
+            if (distance < self.max_distance).sum() <= min_points:
+                valid_yindices[i] = False
+        x = x[valid_yindices]
+        yindices = yindices[valid_yindices]
+        distances = distances[valid_yindices]
+
+        # Multiple evaluation points may have the same neighborhood of
+        # observation points. Make the neighborhoods unique so that we only
+        # compute the interpolation coefficients once for each
+        # neighborhood.
+        yindices = np.sort(yindices, axis=1)
+        yindices, inv = np.unique(yindices, return_inverse=True, axis=0)
+
+        # `inv` tells us which neighborhood will be used by each evaluation
+        # point. Now we find which evaluation points will be using each
+        # neighborhood.
+        xindices = [[] for _ in range(len(yindices))]
+        for i, j in enumerate(inv):
+            xindices[j].append(i)
+
+        # Feature scale
+        self.feature_scale(x, yindices, distances, x[0,-1])
+        return x, yindices, xindices, valid_yindices
