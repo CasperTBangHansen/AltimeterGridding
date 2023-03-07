@@ -401,7 +401,7 @@ class RBFInterpolator:
             self._coeffs = coeffs
 
         else:
-            self._tree = KDTree(y)
+            self._tree = KDTree(y[:, [lat_column, lon_column]])
 
         self.y = y
         self.d = d
@@ -523,9 +523,7 @@ class RBFInterpolator:
                 memory_budget=memory_budget)
         else:
             # Setup coordinate
-            x, yindices, xindices, valid_yindices = self.setup_coordinates(x)
-
-            # Feature scale data
+            x, y_new, yindices, valid_yindices = self.setup_coordinates(x)
 
             # Setup output
             out = np.zeros((nx, self.d.shape[1]), dtype=float)
@@ -533,12 +531,12 @@ class RBFInterpolator:
 
             # Interpolate data
             sub_out = np.zeros((x.shape[0], self.d.shape[1]), dtype=float)
-            for xidx, yidx in zip(xindices, yindices):
+            for xidx, yidx in enumerate(yindices):
                 # `yidx` are the indices of the observations in this
                 # neighborhood. `xidx` are the indices of the evaluation points
                 # that are using this neighborhood.
-                xnbr = x[xidx]
-                ynbr = self.y[yidx]
+                xnbr = x[xidx:xidx+1]
+                ynbr = y_new[xidx]
                 dnbr = self.d[yidx]
                 snbr = self.smoothing[yidx]
                 shift, scale, coeffs = _build_and_solve_system(
@@ -561,20 +559,44 @@ class RBFInterpolator:
         out = out.reshape((nx, ) + self.d_shape)
         return out
 
-    def feature_scale(self, x, yindices, latlon_distances, grid_time):
-        # Max distance in lat lon
-        # feature scale time to [0, max_distance]
-        # add grid_time = [grid_time, grid_time+max_distance]
-        
-        # Push time to zero
-        x[:, -1] -= grid_time
+    def feature_scale(self, x, yindices, latlon_distances):
+        # Feature scale around 0
+        x[:, -1] = 0
+        # Get min max feature values (a,b)
+        min_dist = 0
+        max_dist = latlon_distances.max()
 
+        # Get min max values
+        y_valid = self.y[yindices]
+        y_min = y_valid[:, :, -1].min(axis=1).reshape(-1, 1)
+        y_max = y_valid[:, :, -1].max(axis=1).reshape(-1, 1)
+        y_diff = y_max - y_min
+
+        # Allocate
+        y_new = np.zeros(y_valid.shape, dtype=np.float64)
+        # Prevent division by zero
+        non_zero = (y_diff != 0).flatten()
+
+        # Compute minmax feature scaling
+        y_new[non_zero, :, -1] = (
+            (
+                (y_valid[non_zero, :, -1] - y_min[non_zero])
+                * (max_dist - min_dist)
+            )
+            / y_diff[non_zero]
+        )
+
+        # Add a to feature scaled
+        y_new[:, :, -1] = min_dist + y_new[:, :, -1]
+        y_new[:, :, :-1] = y_valid[:, :, :-1]
+        return y_new
 
     def setup_coordinates(self, x):
         """Find valid x_coordinates and y_indices"""
         # Get the indices of the k nearest observation points to each
         # evaluation point.
-        distances, yindices = self._tree.query(x, self.neighbors)
+        x_latlon = x[:, self.latlon_columns]
+        distances, yindices = self._tree.query(x_latlon, self.neighbors)
         if self.neighbors == 1:
             # `KDTree` squeezes the output when neighbors=1.
             yindices = yindices[:, None]
@@ -585,7 +607,6 @@ class RBFInterpolator:
 
         # Remove grid points for x and y if x is too far away from y.
         valid_yindices = np.ones(yindices.shape[0], dtype=np.bool_)
-        x_latlon = x[:, self.latlon_columns]
         y_latlon = self.y[:, self.latlon_columns]
         for i, y_i in enumerate(yindices):
             distance = haversine_vector(
@@ -599,20 +620,8 @@ class RBFInterpolator:
         yindices = yindices[valid_yindices]
         distances = distances[valid_yindices]
 
-        # Multiple evaluation points may have the same neighborhood of
-        # observation points. Make the neighborhoods unique so that we only
-        # compute the interpolation coefficients once for each
-        # neighborhood.
-        yindices = np.sort(yindices, axis=1)
-        yindices, inv = np.unique(yindices, return_inverse=True, axis=0)
-
-        # `inv` tells us which neighborhood will be used by each evaluation
-        # point. Now we find which evaluation points will be using each
-        # neighborhood.
-        xindices = [[] for _ in range(len(yindices))]
-        for i, j in enumerate(inv):
-            xindices[j].append(i)
+        # Feature scale
+        y_new = self.feature_scale(x, yindices, distances)
 
         # Feature scale
-        self.feature_scale(x, yindices, distances, x[0,-1])
-        return x, yindices, xindices, valid_yindices
+        return x, y_new, yindices, valid_yindices

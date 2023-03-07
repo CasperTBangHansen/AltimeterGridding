@@ -18,21 +18,27 @@ from src import RBFInterpolator
 
 def find_masking_attributes(resolution_deg: float) -> str:
     """Determine land masking from resolution"""
+    base_path = Path("data")
+    if not base_path.exists():
+        base_path.mkdir()
     if resolution_deg == 1:
-        land_mask_file = Path("data","land_NaN_01d.grd")
-        command = f"gmt grdmath @earth_mask_01d_p 0 LE 0 NAN = {land_mask_file}"
+        land_mask_file = Path("land_NaN_01d.grd")
+        mask_name = "earth_mask_01d_p"
     elif resolution_deg == 1/4:
-        land_mask_file = Path("data","land_NaN_15m.grd")
-        command = f"gmt grdmath @earth_mask_15m_p 0 LE 0 NAN = {land_mask_file}"
+        land_mask_file = Path("land_NaN_15m.grd")
+        mask_name = "earth_mask_15m_p"
     elif resolution_deg == 1/6:
-        land_mask_file = Path("data","land_NaN_10m.grd")
-        command = f"gmt grdmath @earth_mask_10m_p 0 LE 0 NAN = {land_mask_file}"
+        land_mask_file = Path("land_NaN_10m.grd")
+        mask_name = "earth_mask_10m_p"
     elif resolution_deg == 1/12:
-        land_mask_file = Path("data","land_NaN_05m.grd")
-        command = f"gmt grdmath @earth_mask_05m_p 0 LE 0 NAN = {land_mask_file}"
+        land_mask_file = Path("land_NaN_05m.grd")
+        mask_name = "earth_mask_05m_p"
     else:
         raise ValueError("Invalid grid resolution. Valid resolutions are 1, 1/4, 1/6 or 1/12 degrees.")
+    
+    land_mask_file = base_path / land_mask_file
     if not land_mask_file.is_file():
+        command = f"gmt grdmath @{mask_name} 0 LE 0 NAN = {land_mask_file}"
         subprocess.run(command, stdout=open(os.devnull, 'wb'))
     return land_mask_file.as_posix()
 
@@ -108,23 +114,26 @@ def setup_gridding(
 
 def grid_inter(
         interp_coords: npt.NDArray[np.float64],
-        block_grid: npt.NDArray[np.float64],
-        output_grid: npt.NDArray[np.float64]
-    ) -> int:
+        block_grid: npt.NDArray[np.float64]
+    ) -> Tuple[int, npt.NDArray[np.float64] | None]:
     """Perform grid interpolation"""
-    timer = Timer("interpolation")
-    timer.start()
     block_mean = block_grid[:,0]
     coords = block_grid[:,1:]
 
-    interpolator = RBFInterpolator(coords,block_mean.flatten(),neighbors=100,kernel="linear", max_distance=500, min_points=5)
-
+    interpolator = RBFInterpolator(
+        coords,
+        block_mean.flatten(),
+        lat_column=1,
+        lon_column=0,
+        neighbors=100,
+        kernel="linear",
+        max_distance=500,
+        min_points=5
+    )
     try:
-        output_grid[:] = interpolator(interp_coords)
+        return 0, interpolator(interp_coords)
     except ValueError:
-        return 1
-    timer.stop()
-    return 0
+        return 1, None
 
 
 def mask_grid(grid: np.ndarray, land_mask: xr.Dataset) -> Tuple[int, xr.Dataset | None]:
@@ -154,10 +163,13 @@ def process_grid(land_mask: xr.Dataset, processed_file: List[Path], interp_lats:
     interp_time = make_interp_time(processed_file)
     grid, interp_coords, ocean_mask = setup_gridding(interp_lons, interp_lats, interp_time, land_mask)
     
-    status = grid_inter(interp_coords, block_grid, grid[ocean_mask])
-
+    timer = Timer("interpolation")
+    timer.start()
+    status, output = grid_inter(interp_coords, block_grid)
+    timer.stop()
     if status != 0:
         return status, None
+    grid[ocean_mask] = output
     # masked_grid=store_attributes(grid, processed_file, land_mask)
     return status,grid
 
@@ -208,7 +220,7 @@ def main():
     GRIDS_15M.mkdir(parents=True, exist_ok=True)
     GRIDS_10M.mkdir(parents=True, exist_ok=True)
     GRIDS_05M.mkdir(parents=True, exist_ok=True)
-    files = PROCESSED.glob("2005_1*.nc")
+    files = PROCESSED.glob("2005_1_*.nc")
     
     dates = []
     for file in files:
