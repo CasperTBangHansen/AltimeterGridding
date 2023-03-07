@@ -40,7 +40,7 @@ def block_mean_loop(x_size,y_size,resolution,start_pos_x,start_pos_y,data_lon,da
     block_grid /= sizes
     return block_grid
 
-# pythran export block_mean_loop_time(int, int, int, float, int64[:], float, float, int64[:], float64[:], float64[:], int64[:], float64[:] or float32[:])
+# pythran export block_mean_loop_time(int, int, int, float, int64[:], float, float, int64[:], float64[:], float64[:], int64[:], float64[:,:] or float32[:,:])
 def block_mean_loop_time(
     x_size,
     y_size,
@@ -60,7 +60,7 @@ def block_mean_loop_time(
 
     times = start_pos_t + np.arange(0,t_size+1)*t_res
 
-    block_grid = np.zeros((len(vals),5), dtype=np.float64)
+    block_grid = np.zeros((len(vals),4+vals.shape[1]), dtype=np.float64)
 
     count = 0
     lookup = {}
@@ -82,16 +82,16 @@ def block_mean_loop_time(
                     if grididx in lookup:
                         tmpidx = lookup.get(grididx,0)
                         block_grid[tmpidx,0] += 1
-                        block_grid[tmpidx,1] += val
+                        block_grid[tmpidx,4:] += val
                     else:
                         lookup[grididx] = count
                         block_grid[count,0] = 1
-                        block_grid[count,1] = val
-                        block_grid[count,2] = lons[i]
-                        block_grid[count,3] = lats[j]
-                        block_grid[count,4] = times[t]
+                        block_grid[count,1] = lons[i]
+                        block_grid[count,2] = lats[j]
+                        block_grid[count,3] = times[t]
+                        block_grid[count,4:] = val
                         count += 1
     block_grid = block_grid[:count]
-    block_grid[:,1] = block_grid[:,1] / block_grid[:,0]
+    block_grid[:,4:] = block_grid[:,4:] / block_grid[:,0:1]
     return block_grid[:,1:]
 
