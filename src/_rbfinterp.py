@@ -603,10 +603,9 @@ class RBFInterpolator:
             distances = distances[:, None]
 
         min_points = 0 if self.min_points is None else self.min_points
-        min_points = self.neighbors - min_points
 
         # Remove grid points for x and y if x is too far away from y.
-        valid_yindices = np.ones(yindices.shape[0], dtype=np.bool_)
+        valid_yindices = np.zeros(yindices.shape[0], dtype=np.bool_)
         y_latlon = self.y[:, self.latlon_columns]
         for i, y_i in enumerate(yindices):
             distance = haversine_vector(
@@ -614,8 +613,8 @@ class RBFInterpolator:
                 y_latlon[y_i],
                 comb=True
             )
-            if (distance < self.max_distance).sum() <= min_points:
-                valid_yindices[i] = False
+            if (distance < self.max_distance).sum() > min_points:
+                valid_yindices[i] = True
         x = x[valid_yindices]
         yindices = yindices[valid_yindices]
         distances = distances[valid_yindices]
