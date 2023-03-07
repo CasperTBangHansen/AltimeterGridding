@@ -63,7 +63,7 @@ def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], 
     else:
         data = open_mult(data_path)
     data_lon,data_lat = data["lon"].values, data["lat"].values
-    vals = data.sla.values.copy()
+    vals = np.vstack([data[var].data for var in data.data_vars]).T
     resolution = 1/6
     t_resolution = np.array([timedelta(hours=12).seconds*1e9],dtype=np.int64)
 
@@ -75,8 +75,18 @@ def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], 
     y_size = int((y_end-y_start)//resolution)
 
     data_time = data["time"].values.astype(np.int64).copy()
-    t_start = np.array([data_time.min()],dtype=np.int64)
+    # t_start = np.array([data_time.min()],dtype=np.int64)
+
+    t_start = (
+        data_time
+        .min()
+        .astype("datetime64[ns]")
+        .astype("datetime64[D]")
+        .astype("datetime64[ns]")
+        .astype(np.int64)
+    )
     t_size = int(np.round((data_time.max() - t_start) / t_resolution))
+    t_start = np.array([t_start],dtype=np.int64)
     
     block_mean = block_mean_loop_time(x_size,y_size,t_size,resolution,t_resolution,x_start,y_start,t_start,data_lon,data_lat,data_time,vals)
 
@@ -110,56 +120,63 @@ def grid_inter(
         interp_coords: npt.NDArray[np.float64],
         block_grid: npt.NDArray[np.float64],
         output_grid: npt.NDArray[np.float64]
-    ) -> int:
+    ) -> Tuple[int,npt.NDArray[np.float64] | None]:
     """Perform grid interpolation"""
     timer = Timer("interpolation")
     timer.start()
-    block_mean = block_grid[:,0]
-    coords = block_grid[:,1:]
+    block_mean = block_grid[:,3:]
+    coords = block_grid[:,:3]
 
     interpolator = RBFInterpolator(coords,block_mean.flatten(),neighbors=100,kernel="linear", max_distance=500, min_points=5)
 
     try:
         output_grid[:] = interpolator(interp_coords)
     except ValueError:
-        return 1
+        return 1, None
     timer.stop()
     return 0
 
-
-def mask_grid(grid: np.ndarray, land_mask: xr.Dataset) -> Tuple[int, xr.Dataset | None]:
-    """Apply landmask to grid"""
-    try:
-        masked_grid = grid * land_mask.z
-        if not masked_grid.shape == grid.shape:
-            return 1,None
-        return 0,masked_grid
-    except ValueError:
-        return 1, None
-
-def store_attributes(masked_grid: xr.Dataset, processed_file: List[Path], land_mask: xr.Dataset) -> xr.Dataset:
+def store_attributes(
+        masked_grid: xr.Dataset | npt.NDArray[np.float64],
+        processed_file: List[Path],
+        land_mask: xr.Dataset,
+        interp_lons: npt.NDArray[np.float64],
+        interp_lats: npt.NDArray[np.float64],
+        interp_time: int
+    ) -> xr.Dataset:
     """Transfer attributes from data netcdf to grid netcdf"""
     processed = open_mult(processed_file)
+    if isinstance(masked_grid, np.ndarray):
+        masked_grid = xr.Dataset(
+            data_vars=dict(
+                sla=(['lats','lons'],masked_grid)
+            ),
+            coords=dict(
+                Longitude=(['lats','lons'],interp_lons),
+                Latitude=(['lats','lons'],interp_lats),
+                time=np.datetime64(interp_time, 'ns')
+            )
+        )
     masked_grid = masked_grid.assign_attrs(processed.attrs)
-    res = land_mask.history[24:27]
+    res = land_mask.history.split('_')[2]
     file = processed_file[1].as_posix()
-    root = file[14:-3]
+    root = file.split('/')[2].split('.')[0]
     grid_out_path = Path(f"Grids/{res}/3days/{root}_{res}.nc")
     masked_grid.to_netcdf(grid_out_path,mode="w")
     return masked_grid
 
-def process_grid(land_mask: xr.Dataset, processed_file: List[Path], interp_lats: np.ndarray, interp_lons: np.ndarray) -> Tuple[int, npt.NDArray[np.float64] | None]:
+def process_grid(land_mask: xr.Dataset, processed_file: List[Path], interp_lats: np.ndarray, interp_lons: np.ndarray) -> xr.Dataset:
     """Full grid processing pipeline"""
     block_grid = block_mean((-180,180),(-80,80),processed_file)
     interp_time = make_interp_time(processed_file)
     grid, interp_coords, ocean_mask = setup_gridding(interp_lons, interp_lats, interp_time, land_mask)
     
-    status = grid_inter(interp_coords, block_grid, grid[ocean_mask])
+    # status = grid_inter(interp_coords, block_grid, grid[ocean_mask])
 
-    if status != 0:
-        return status, None
-    # masked_grid=store_attributes(grid, processed_file, land_mask)
-    return status,grid
+    # if status != 0 or grid is None:
+    #     return status, None
+    final_grid=store_attributes(grid, processed_file, land_mask, interp_lons, interp_lats, interp_time)
+    return final_grid
 
 def open_mult(filepaths: List[Path]):
     """Open and concatenate multiple days of data as xarrays"""
@@ -208,7 +225,7 @@ def main():
     GRIDS_15M.mkdir(parents=True, exist_ok=True)
     GRIDS_10M.mkdir(parents=True, exist_ok=True)
     GRIDS_05M.mkdir(parents=True, exist_ok=True)
-    files = PROCESSED.glob("2005_1*.nc")
+    files = PROCESSED.glob("2004*.nc")
     
     dates = []
     for file in files:
