@@ -8,7 +8,6 @@ import numpy as np
 import numpy.typing as npt
 import warnings
 import time
-from numba import njit
 from scipy.interpolate import RBFInterpolator
 from datetime import date, timedelta, datetime
 from grid_funcs import sign_add, _landmask_coord_bool, block_mean_loop_time

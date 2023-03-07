@@ -1,5 +1,8 @@
 netcdf4
 xarray
+numpy
 scipy
 scikit-learn
 matplotlib
+haversine
+pythran
