@@ -40,7 +40,7 @@ def block_mean_loop(x_size,y_size,resolution,start_pos_x,start_pos_y,data_lon,da
     block_grid /= sizes
     return block_grid
 
-# pythran export block_mean_loop_time(int, int, int, float, int, float, float, int, float64[:], float64[:], int64[:], float64[:] or float32[:])
+# pythran export block_mean_loop_time(int, int, int, float, int64[:], float, float, int64[:], float64[:], float64[:], int64[:], float64[:] or float32[:])
 def block_mean_loop_time(
     x_size,
     y_size,
@@ -59,8 +59,9 @@ def block_mean_loop_time(
     lats = start_pos_y + np.arange(0,y_size+1)*s_res
 
     times = start_pos_t + np.arange(0,t_size+1)*t_res
-    
-    block_grid = np.zeros((len(vals),5))
+
+    block_grid = np.zeros((len(vals),5), dtype=np.float64)
+
     count = 0
     lookup = {}
     for val,lon,lat,time in zip(vals,data_lon,data_lat,data_time):
