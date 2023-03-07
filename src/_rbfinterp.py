@@ -564,7 +564,7 @@ class RBFInterpolator:
         x[:, -1] = 0
         # Get min max feature values (a,b)
         min_dist = 0
-        max_dist = latlon_distances.max()
+        max_dist = .5*latlon_distances.max()
 
         # Get min max values
         y_valid = self.y[yindices]
