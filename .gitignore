@@ -136,3 +136,6 @@ dmypy.json
 .vscode/*
 .data
 gmt.history
+*.png
+*.gif
+src/RBF_new/*
