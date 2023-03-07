@@ -141,10 +141,19 @@ class RBFInterpolator:
         Data point coordinates.
     d : (P, ...) array_like
         Data values at `y`.
+    lon_column : int
+        Column index of longitude values
+    lat_column : int
+        Column index of latitude values
     neighbors : int, optional
         If specified, the value of the interpolant at each evaluation point
         will be computed using only this many nearest data points. All the data
         points are used by default.
+    min_points : int, optional
+        Minimum amount of points within max_distance for the interpolation point
+        to be valid,
+    max_distance : int, optional
+        Maximum distance from grid point to interpolation point in km.
     smoothing : float or (P,) array_like, optional
         Smoothing parameter. The interpolant perfectly fits the data when this
         is set to 0. For large values, the interpolant approaches a least
@@ -161,7 +170,7 @@ class RBFInterpolator:
             - 'inverse_quadratic'    : ``1/(1 + r**2)``
             - 'gaussian'             : ``exp(-r**2)``
 
-        Default is 'thin_plate_spline'.
+        Default is 'thin_plate_spline'.       
     epsilon : float, optional
         Shape parameter that scales the input to the RBF. If `kernel` is
         'linear', 'thin_plate_spline', 'cubic', or 'quintic', this defaults to
@@ -284,6 +293,8 @@ class RBFInterpolator:
     """
 
     def __init__(self, y, d,
+                 lon_column,
+                 lat_column,
                  neighbors=None,
                  min_points=None,
                  max_distance=None,
@@ -296,6 +307,15 @@ class RBFInterpolator:
             raise ValueError("`y` must be a 2-dimensional array.")
 
         ny, ndim = y.shape
+
+        if ndim < lat_column + 1:
+            raise ValueError(
+                f"Invalid `lat_column` was {lat_column} should have been less than {ndim}."
+            )
+        if ndim < lon_column + 1:
+            ValueError(
+                f"Invalid `lon_column` was {lon_column} should have been less than {ndim}."
+            )
 
         d_dtype = complex if np.iscomplexobj(d) else float
         d = np.asarray(d, dtype=d_dtype, order="C")
@@ -394,6 +414,7 @@ class RBFInterpolator:
         self.kernel = kernel
         self.epsilon = epsilon
         self.powers = powers
+        self.latlon_columns = [lat_column, lon_column]
 
     def _chunk_evaluator(
             self,
@@ -514,8 +535,14 @@ class RBFInterpolator:
 
             # Remove grid points for x and y if x is too far away from y.
             valid_yindices = np.ones(yindices.shape[0], dtype=np.bool_)
+            x_latlon = x[:, self.latlon_columns]
+            y_latlon = self.y[:, self.latlon_columns]
             for i, y_i in enumerate(yindices):
-                distance = haversine_vector(np.flip(x[i], axis=0), np.flip(self.y[y_i],axis=1), comb=True)
+                distance = haversine_vector(
+                    x_latlon[i],
+                    y_latlon[y_i],
+                    comb=True
+                )
                 if (distance < self.max_distance).sum() <= min_points:
                     valid_yindices[i] = False
             x = x[valid_yindices]
