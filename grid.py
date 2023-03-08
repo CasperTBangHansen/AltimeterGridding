@@ -136,7 +136,7 @@ def grid_inter(
         block_mean,
         lat_column=1,
         lon_column=0,
-        neighbors=100,
+        neighbors=300,
         kernel="linear",
         max_distance=1000,
         min_points=5
