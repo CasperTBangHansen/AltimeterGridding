@@ -5,6 +5,7 @@ import time
 
 from typing import List, Tuple
 from pathlib import Path
+from tqdm import tqdm
 
 import xarray as xr
 import numpy as np
@@ -62,8 +63,8 @@ def subset_landmask(landmask: xr.Dataset, x_boundary: Tuple[float, float], y_bou
 
 def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], data_path: List[Path] | Path) -> npt.NDArray[np.float64]:
     """mean grid in blocks of resolution size"""
-    timer = Timer("Block mean")
-    timer.start()
+    # timer = Timer("Block mean")
+    # timer.start()
     if isinstance(data_path,Path):
         data = xr.open_dataset(data_path)
     else:
@@ -97,7 +98,7 @@ def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], 
     
     block_mean = block_mean_loop_time(x_size,y_size,t_size,resolution,t_resolution,x_start,y_start,t_start,data_lon,data_lat,data_time,vals)
 
-    timer.stop()
+    # timer.stop()
     return block_mean
 
 def make_interp_time(data_path: List[Path]) -> int:
@@ -147,9 +148,9 @@ def grid_inter(
         block_mean,
         lat_column=1,
         lon_column=0,
-        neighbors=100,
+        neighbors=500,
         kernel="linear",
-        max_distance=1000,
+        max_distance=500,
         min_points=5
     )
     return 0, interpolator(interp_coords)
@@ -195,10 +196,10 @@ def process_grid(land_mask: xr.Dataset, processed_file: List[Path], interp_lats:
     interp_time = make_interp_time(processed_file)
     grid, interp_coords, ocean_mask = setup_gridding(interp_lons, interp_lats, interp_time, land_mask, block_grid.shape[1]-3)
     
-    timer = Timer("interpolation")
-    timer.start()
+    # timer = Timer("interpolation")
+    # timer.start()
     status, output = grid_inter(interp_coords, block_grid)
-    timer.stop()
+    # timer.stop()
     if status != 0:
         return status, None
     grid[ocean_mask] = output
@@ -284,7 +285,7 @@ def main():
     for file in files:
         commands.append((land_mask.copy(), file, interp_lats, interp_lons))
     
-    for command in commands:
+    for command in tqdm(commands):
         _ = process_grid(*command)
     # with multiprocessing.Pool() as pool:
     #     _ = pool.starmap(process_grid, commands)
