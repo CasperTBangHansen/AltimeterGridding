@@ -72,7 +72,7 @@ def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], 
     vals = np.vstack([data[var].data for var in data.data_vars]).T
     vals = vals[~np.isnan(vals).any(axis=1)]
     resolution = 1/6
-    t_resolution = np.array([timedelta(hours=12).seconds*1e9],dtype=np.int64)
+    t_resolution = np.array([timedelta(hours=3).seconds*1e9],dtype=np.int64)
 
     x_start=sign_add(x_boundary[0], resolution/2)
     x_end=sign_add(x_boundary[1], resolution/2)
@@ -112,11 +112,12 @@ def setup_gridding(
         interp_lons: npt.NDArray[np.float64],
         interp_lats: npt.NDArray[np.float64],
         interp_time: int,
-        land_mask: xr.Dataset
+        land_mask: xr.Dataset,
+        n_output_variables: int
     ) -> Tuple[npt.NDArray[np.float64],npt.NDArray[np.float64], npt.NDArray[np.bool_]]:
     """Setup input parameters for grid interpolation"""
     ocean_mask = ~np.isnan(land_mask.z.data)
-    output = np.empty(ocean_mask.shape, dtype=np.float64)
+    output = np.empty(list(ocean_mask.shape)+[n_output_variables], dtype=np.float64)
     output.fill(np.nan)
     times = np.ones(len(interp_lons.flatten()),dtype=np.int64)*interp_time
     interp_coords = np.vstack((interp_lons.flatten(),interp_lats.flatten(),times)).T
@@ -148,7 +149,7 @@ def grid_inter(
         lon_column=0,
         neighbors=100,
         kernel="linear",
-        max_distance=500,
+        max_distance=1000,
         min_points=5
     )
     return 0, interpolator(interp_coords)
@@ -168,10 +169,12 @@ def store_attributes(
     """Transfer attributes from data netcdf to grid netcdf"""
     processed = open_mult(processed_file)
     if isinstance(masked_grid, np.ndarray):
+        data_vars = list(processed.data_vars)
+        layer_ids = range(masked_grid.shape[-1])
         masked_grid = xr.Dataset(
-            data_vars=dict(
-                sla=(['lats','lons'],masked_grid)
-            ),
+            data_vars={
+                name:(['lats','lons'],masked_grid[:,:,i]) for name,i in zip(data_vars,layer_ids)
+            },
             coords=dict(
                 Longitude=(['lats','lons'],interp_lons),
                 Latitude=(['lats','lons'],interp_lats),
@@ -190,7 +193,7 @@ def process_grid(land_mask: xr.Dataset, processed_file: List[Path], interp_lats:
     """Full grid processing pipeline"""
     block_grid = block_mean((-180,180),(-80,80),processed_file)
     interp_time = make_interp_time(processed_file)
-    grid, interp_coords, ocean_mask = setup_gridding(interp_lons, interp_lats, interp_time, land_mask)
+    grid, interp_coords, ocean_mask = setup_gridding(interp_lons, interp_lats, interp_time, land_mask, block_grid.shape[1]-3)
     
     timer = Timer("interpolation")
     timer.start()
