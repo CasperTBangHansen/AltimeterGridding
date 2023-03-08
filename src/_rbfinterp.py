@@ -607,6 +607,8 @@ class RBFInterpolator:
         # Remove grid points for x and y if x is too far away from y.
         valid_yindices = np.zeros(yindices.shape[0], dtype=np.bool_)
         y_latlon = self.y[:, self.latlon_columns]
+        y_latlon[y_latlon[:,1] < -180, 1] += 360
+        y_latlon[y_latlon[:,1] > 180, 1] -= 360
         for i, y_i in enumerate(yindices):
             distance = haversine_vector(
                 x_latlon[i],

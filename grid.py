@@ -71,6 +71,7 @@ def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], 
         data = open_mult(data_path)
     data_lon,data_lat = data["lon"].values, data["lat"].values
     vals = np.vstack([data[var].data for var in data.data_vars]).T
+    vals = vals[~np.isnan(vals).any(axis=1)]
     resolution = 1/6
     t_resolution = np.array([timedelta(hours=3).seconds*1e9],dtype=np.int64)
 
@@ -126,10 +127,20 @@ def setup_gridding(
 
 def grid_inter(
         interp_coords: npt.NDArray[np.float64],
-        block_grid: npt.NDArray[np.float64]
+        block_grid: npt.NDArray[np.float64],
+        start_wrap: float = 160
     ) -> Tuple[int, npt.NDArray[np.float64] | None]:
     """Perform grid interpolation"""
-    block_mean = block_grid[:,3:]
+   
+    # Wrap coordinates
+    wrapped_negative = block_grid[(block_grid[:,0] > abs(start_wrap))]
+    wrapped_negative[:,0] -= 360
+    wrapped_positive = block_grid[(block_grid[:,0] < -abs(start_wrap))]
+    wrapped_positive[:,0] += 360
+    block_grid = np.vstack([block_grid, wrapped_positive, wrapped_negative])
+
+    # Split data
+    block_mean = block_grid[:,3:] # [lon, lat, time]
     coords = block_grid[:,:3]
 
     interpolator = RBFInterpolator(
@@ -142,10 +153,11 @@ def grid_inter(
         max_distance=500,
         min_points=5
     )
-    try:
-        return 0, interpolator(interp_coords)
-    except ValueError:
-        return 1, None
+    return 0, interpolator(interp_coords)
+    # try:
+        
+    # except ValueError:
+    #     return 1, None
 
 def store_attributes(
         masked_grid: xr.Dataset | npt.NDArray[np.float64],
@@ -178,7 +190,7 @@ def store_attributes(
     masked_grid.to_netcdf(grid_out_path,mode="w")
     return masked_grid
 
-def process_grid(land_mask: xr.Dataset, processed_file: List[Path], interp_lats: np.ndarray, interp_lons: np.ndarray) -> xr.Dataset:
+def process_grid(land_mask: xr.Dataset, processed_file: List[Path], interp_lats: np.ndarray, interp_lons: np.ndarray) -> Tuple[int, xr.Dataset | None]:
     """Full grid processing pipeline"""
     block_grid = block_mean((-180,180),(-80,80),processed_file)
     interp_time = make_interp_time(processed_file)
