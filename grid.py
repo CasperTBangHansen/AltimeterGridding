@@ -241,7 +241,7 @@ def main():
     GRIDS_15M.mkdir(parents=True, exist_ok=True)
     GRIDS_10M.mkdir(parents=True, exist_ok=True)
     GRIDS_05M.mkdir(parents=True, exist_ok=True)
-    files = PROCESSED.glob("2004_6_1[0-2].nc")
+    files = PROCESSED.glob("2004*.nc")
     
     dates = []
     for file in files:
