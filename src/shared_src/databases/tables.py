@@ -30,7 +30,7 @@ class Product(BaseClass):
     __tablename__ = "product"
 
     id: orm.Mapped[int] = orm.mapped_column(primary_key=True)
-    name: orm.Mapped[str] = orm.mapped_column(String(30), unique=True)
+    name: orm.Mapped[str] = orm.mapped_column(String(50), unique=True)
     # Resolution
     resolution: orm.Mapped[List["Resolution"]] = orm.relationship(back_populates="product")
 
@@ -39,7 +39,7 @@ class Resolution(BaseClass):
     
     # Fields
     id: orm.Mapped[int] = orm.mapped_column(primary_key=True)
-    name: orm.Mapped[str] = orm.mapped_column(String(30), unique=True)
+    name: orm.Mapped[str] = orm.mapped_column(String(50), unique=True)
     x: orm.Mapped[float]
     y: orm.Mapped[float]
     time_days: orm.Mapped[int]
@@ -79,9 +79,6 @@ class Grid(BaseClass):
             ' :ellipsoid_axis, :ellipsoid_flattening, :mission_names,'
             ' :mission_phase, :rads, :resolution_id, :total_points, :n_points)'
         )
-        with open('databases\\log.txt', 'r') as f:
-            out = f.readline()
-        self.raster = out[2:-1]
         session.execute(
             statement, # type: ignore
             {
@@ -93,7 +90,6 @@ class Grid(BaseClass):
                 'total_points': self.total_points, 'n_points': self.n_points
             }
         )
-        pass
 
 def create_all_tables(engine: Engine) -> None:
     """ Creates all tables if they dont exists"""

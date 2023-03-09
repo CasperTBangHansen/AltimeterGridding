@@ -10,11 +10,7 @@ import xarray as xr
 import numpy as np
 import numpy.typing as npt
 from datetime import date, timedelta
-
-# from scipy.interpolate import RBFInterpolator
-from grid_funcs import sign_add, _landmask_coord_bool, block_mean_loop_time
-from src import RBFInterpolator
-
+from src import RBFInterpolator, sign_add, _landmask_coord_bool, block_mean_loop_time
 
 def find_masking_attributes(resolution_deg: float) -> str:
     """Determine land masking from resolution"""

@@ -12,8 +12,8 @@ logging.getLogger(__name__)
 
 class Database:
     def __init__(self, username: str, password: str, host: str, port: str | int, database_name: str, engine: str, database_type: str, create_tables: bool = True) -> None:
-        self._url_object = f"{database_type}+{engine}://{username}:{password}@{host}:{port}/{database_name}?sslmode=require"
-        self.engine = create_engine(self._url_object)
+        _url_object = f"{database_type}+{engine}://{username}:{password}@{host}:{port}/{database_name}?sslmode=require"
+        self.engine = create_engine(_url_object)
         self.session = sessionmaker(self.engine)
         if create_tables:
             tables.create_all_tables(self.engine)
@@ -32,7 +32,7 @@ class Database:
         """ Add a product to the database"""        
         # Check id the product already exists
         name = product.name
-        if self.check_add(product, name=name):
+        if self.check_add(product, name=name, expire_on_commit=False):
             logging.info(f"Adding {name} to the product table")
             return True
         logging.warning(f"{name} already existed in the product table")
@@ -74,9 +74,14 @@ class Database:
             if session.scalars(resolution_exists).first() is None:
                 logging.warning(f"No resolution matched resolution_id {resolution_id}. Did not add grid to the grid table.")
                 return False
+
+            # Check if grid already exists
+            exists = session.scalars(select(type(grid)).filter_by(date=grid.date)).first()
+            if exists:
+                logging.warning(f"Grid already exists for resolution_id {resolution_id} and date {grid.date}")
+                return False
+
             grid.insert(session)
-        # Add grid
-        if self.check_add(grid, expire_on_commit=False):
             logging.info(f"Added grid to the grid table")
             return True
         logging.warning(f"Failed to add grid to the grid table")
@@ -90,15 +95,15 @@ class Database:
         grid = tables.Grid(
             raster=strhexwkb,
             date=day,
-            references=str(dataset['z'].attrs.get('references')),
-            ellipsoid=str(dataset['z'].attrs.get('ellipsoid')),
-            ellipsoid_axis=dataset['z'].attrs.get('ellipsoid_axis'),
-            ellipsoid_flattening=dataset['z'].attrs.get('ellipsoid_flattening'),
-            mission_names=str(dataset['z'].attrs.get('mission_name')),
-            mission_phase=str(dataset['z'].attrs.get('mission_phase')),
-            rads=str(dataset['z'].attrs.get('title')),
-            total_points=int(dataset['z'].attrs.get('total_points', 0)),
-            n_points=str(list(dataset['z'].attrs.get('n_points', ''))),
+            references=str(dataset.attrs.get('references')),
+            ellipsoid=str(dataset.attrs.get('ellipsoid')),
+            ellipsoid_axis=dataset.attrs.get('ellipsoid_axis'),
+            ellipsoid_flattening=dataset.attrs.get('ellipsoid_flattening'),
+            mission_names=str(dataset.attrs.get('mission_name')),
+            mission_phase=str(dataset.attrs.get('mission_phase')),
+            rads=str(dataset.attrs.get('title')),
+            total_points=int(dataset.attrs.get('total_points', 0)),
+            n_points=str(list(dataset.attrs.get('n_points', ''))),
             resolution_id=resolution_id
         )
         if(not self._construct_grid(grid)):

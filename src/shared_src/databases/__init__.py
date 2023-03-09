@@ -1,2 +1,2 @@
-from .database import Database as Database
-from . import tables as tables
+from .database import Database
+from . import tables
