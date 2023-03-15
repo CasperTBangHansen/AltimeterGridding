@@ -54,5 +54,4 @@ def upload_folder(folder: Path) -> None:
 
 
 if __name__ == '__main__':
-    # setup_tables()
     upload_folder(Path("Grids", "01d", "3days"))

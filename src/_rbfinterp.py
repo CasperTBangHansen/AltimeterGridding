@@ -2,6 +2,7 @@
 import warnings
 from itertools import combinations_with_replacement
 
+
 import numpy as np
 from numpy.linalg import LinAlgError
 from scipy.spatial import KDTree
@@ -9,7 +10,7 @@ from scipy.special import comb
 from scipy.linalg.lapack import dgesv  # type: ignore[attr-defined]
 from haversine import haversine_vector
 
-from ._rbfinterp_pythran import (_build_system,
+from scipy.interpolate._rbfinterp_pythran import (_build_system,
                                  _build_evaluation_coefficients,
                                  _polynomial_matrix)
 

@@ -149,10 +149,6 @@ def grid_inter(
         min_points=5
     )
     return 0, interpolator(interp_coords)
-    # try:
-        
-    # except ValueError:
-    #     return 1, None
 
 def store_attributes(
         masked_grid: xr.Dataset | npt.NDArray[np.float64],
