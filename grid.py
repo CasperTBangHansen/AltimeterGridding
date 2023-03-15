@@ -5,6 +5,7 @@ import time
 
 from typing import List, Tuple
 from pathlib import Path
+from tqdm import tqdm
 
 import xarray as xr
 import numpy as np
@@ -56,17 +57,46 @@ def subset_landmask(landmask: xr.Dataset, x_boundary: Tuple[float, float], y_bou
     lon_max = _landmask_coord_bool(landmask.lon.values, x_boundary[1])
     return landmask.isel(lat=slice(lat_min,lat_max), lon=slice(lon_min,lon_max))
 
+def block_mean_loop_time_(
+    x_size: int,
+    y_size: int,
+    t_size: int,
+    s_res: float,
+    t_res: npt.NDArray[np.int64],
+    x_start: float,
+    y_start: float,
+    t_start: npt.NDArray[np.int64],
+    data_lon: npt.NDArray[np.float64],
+    data_lat: npt.NDArray[np.float64],
+    data_time: npt.NDArray[np.int64],
+    vals) -> npt.NDArray[np.float64]:
+
+    if len(data_lon) != len(vals):
+        raise ValueError(f"Number of longitudes does not match number of values ({len(data_lon)} != {len(vals)})")
+    if len(data_lat) != len(vals):
+        raise ValueError(f"Number of latitudes does not match number of values ({len(data_lat)} != {len(vals)})")
+    if len(data_time) != len(vals):
+        raise ValueError(f"Number of times does not match number of values ({len(data_time)} != {len(vals)})")
+
+    return block_mean_loop_time(x_size,y_size,t_size,s_res,t_res,x_start,y_start,t_start,data_lon,data_lat,data_time,vals)
+
 def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], data_path: List[Path] | Path) -> npt.NDArray[np.float64]:
     """mean grid in blocks of resolution size"""
-    timer = Timer("Block mean")
-    timer.start()
+    # timer = Timer("Block mean")
+    # timer.start()
     if isinstance(data_path,Path):
         data = xr.open_dataset(data_path)
     else:
         data = open_mult(data_path)
     data_lon,data_lat = data["lon"].values, data["lat"].values
+    data_time = data["time"].values.astype(np.int64).copy()
     vals = np.vstack([data[var].data for var in data.data_vars]).T
-    vals = vals[~np.isnan(vals).any(axis=1)]
+    remove_nan = ~np.isnan(vals).any(axis=1)
+    vals = vals[remove_nan]
+    data_lon = data_lon[remove_nan]
+    data_lat = data_lat[remove_nan]
+    data_time = data_time[remove_nan]
+
     resolution = 1/6
     t_resolution = np.array([timedelta(hours=3).seconds*1e9],dtype=np.int64)
 
@@ -76,9 +106,6 @@ def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], 
     y_end=sign_add(y_boundary[1], resolution/2)
     x_size = int((x_end-x_start)//resolution)
     y_size = int((y_end-y_start)//resolution)
-
-    data_time = data["time"].values.astype(np.int64).copy()
-    # t_start = np.array([data_time.min()],dtype=np.int64)
 
     t_start = (
         data_time
@@ -91,9 +118,9 @@ def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], 
     t_size = int(np.round((data_time.max() - t_start) / t_resolution))
     t_start = np.array([t_start],dtype=np.int64)
     
-    block_mean = block_mean_loop_time(x_size,y_size,t_size,resolution,t_resolution,x_start,y_start,t_start,data_lon,data_lat,data_time,vals)
+    block_mean = block_mean_loop_time_(x_size,y_size,t_size,resolution,t_resolution,x_start,y_start,t_start,data_lon,data_lat,data_time,vals)
 
-    timer.stop()
+    # timer.stop()
     return block_mean
 
 def make_interp_time(data_path: List[Path]) -> int:
@@ -143,9 +170,9 @@ def grid_inter(
         block_mean,
         lat_column=1,
         lon_column=0,
-        neighbors=100,
+        neighbors=500,
         kernel="linear",
-        max_distance=1000,
+        max_distance=500,
         min_points=5
     )
     return 0, interpolator(interp_coords)
@@ -175,8 +202,7 @@ def store_attributes(
         )
     masked_grid = masked_grid.assign_attrs(processed.attrs)
     res = land_mask.history.split('_')[2]
-    file = processed_file[1].as_posix()
-    root = file.split('/')[2].split('.')[0]
+    root = processed_file[1].name.split('.')[0]
     grid_out_path = Path(f"Grids/{res}/3days/{root}_{res}.nc")
     masked_grid.to_netcdf(grid_out_path,mode="w")
     return masked_grid
@@ -244,7 +270,7 @@ def main():
     GRIDS_15M.mkdir(parents=True, exist_ok=True)
     GRIDS_10M.mkdir(parents=True, exist_ok=True)
     GRIDS_05M.mkdir(parents=True, exist_ok=True)
-    files = PROCESSED.glob("2010_*.nc")
+    files = PROCESSED.glob("2004_6_*.nc")
     
     dates = []
     for file in files:
@@ -276,10 +302,10 @@ def main():
     for file in files:
         commands.append((land_mask.copy(), file, interp_lats, interp_lons))
     
-    for command in commands:
-        _ = process_grid(*command)
-    # with multiprocessing.Pool() as pool:
-    #     _ = pool.starmap(process_grid, commands)
+    # for command in tqdm(commands):
+    #     _ = process_grid(*command)
+    with multiprocessing.Pool() as pool:
+        _ = pool.starmap(process_grid, commands)
     
     print("Complete")
     timer.stop()
