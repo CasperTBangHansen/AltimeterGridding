@@ -106,9 +106,7 @@ class Database:
             n_points=str(list(dataset.attrs.get('n_points', ''))),
             resolution_id=resolution_id
         )
-        if(not self._construct_grid(grid)):
-            return False
-        return True
+        return self._construct_grid(grid)
 
     def add_grid(self, dataset: xr.Dataset, day: date, resolution: int | tables.Resolution) -> bool:
         """Adds a grid to the database"""

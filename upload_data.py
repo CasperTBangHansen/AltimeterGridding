@@ -3,6 +3,7 @@ from os import environ
 from src import Database, tables
 from datetime import date
 import xarray as xr
+from tqdm import tqdm
 
 # Database
 database = Database(
@@ -42,15 +43,16 @@ def upload_folder(folder: Path) -> None:
     if resolution is None:
         print("INVALID RESOLUTION")
         return
-    files = folder.glob("*.nc")
-    for file in files:
+    files = list(folder.glob("*.nc"))
+    files.sort()
+    pbar = tqdm(files[::-1])
+    for file in pbar:
+        pbar.set_description(file.name)
         file_date = get_date_from_file_name(file.name)
         grid = xr.open_dataset(file)
-        status = database.add_grid(dataset=grid, day=file_date, resolution=resolution)
-        print(f"Status = {status}")
-    
+        database.add_grid(dataset=grid, day=file_date, resolution=resolution)    
 
 
 if __name__ == '__main__':
     # setup_tables()
-    upload_folder(Path("Grids", "01d"))
+    upload_folder(Path("Grids", "01d", "3days"))
