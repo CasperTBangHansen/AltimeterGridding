@@ -80,14 +80,15 @@ def block_mean_loop_time_(
 
     return block_mean_loop_time(x_size,y_size,t_size,s_res,t_res,x_start,y_start,t_start,data_lon,data_lat,data_time,vals)
 
-def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], data_path: List[Path] | Path) -> npt.NDArray[np.float64]:
-    """mean grid in blocks of resolution size"""
-    # timer = Timer("Block mean")
-    # timer.start()
+def read_data(data_path: List[Path] | Path) -> xr.Dataset:
+    """Read data from file(s)"""
     if isinstance(data_path,Path):
-        data = xr.open_dataset(data_path)
+        return xr.open_dataset(data_path)
     else:
-        data = open_mult(data_path)
+        return open_mult(data_path)
+
+def remove_nans(data: xr.Dataset) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.int64]]:
+    """Remove nan values and return coordinates/values"""
     data_lon,data_lat = data["lon"].values, data["lat"].values
     data_time = data["time"].values.astype(np.int64).copy()
     vals = np.vstack([data[var].data for var in data.data_vars]).T
@@ -96,17 +97,20 @@ def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], 
     data_lon = data_lon[remove_nan]
     data_lat = data_lat[remove_nan]
     data_time = data_time[remove_nan]
+    return vals, data_lon, data_lat, data_time
 
-    resolution = 1/6
-    t_resolution = np.array([timedelta(hours=3).seconds*1e9],dtype=np.int64)
-
+def setup_spatial_grid_bounds(x_boundary: Tuple[float, float], y_boundary: Tuple[float, float], resolution: float) -> Tuple[float, float, int, int]:
+    """Set the spatial boundaries for block mean grid"""
     x_start=sign_add(x_boundary[0], resolution/2)
     x_end=sign_add(x_boundary[1], resolution/2)
     y_start=sign_add(y_boundary[0], resolution/2)
     y_end=sign_add(y_boundary[1], resolution/2)
     x_size = int((x_end-x_start)//resolution)
     y_size = int((y_end-y_start)//resolution)
+    return x_start, y_start, x_size, y_size
 
+def setup_temporal_grid_bounds(data_time: npt.NDArray[np.int64], t_resolution: npt.NDArray[np.int64]):
+    """Set the temporal boundaries for block mean grid"""
     t_start = (
         data_time
         .min()
@@ -117,10 +121,21 @@ def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], 
     )
     t_size = int(np.round((data_time.max() - t_start) / t_resolution))
     t_start = np.array([t_start],dtype=np.int64)
+    return t_start, t_size
+
+
+def block_mean(x_boundary: Tuple[float, float],y_boundary: Tuple[float, float], data: xr.Dataset) -> npt.NDArray[np.float64]:
+    """mean grid in blocks of resolution size"""
+    # Spatial and temporal resolution of block mean grid
+    resolution = 1/6
+    t_resolution = np.array([timedelta(hours=3).seconds*1e9],dtype=np.int64)
+
+    vals, data_lon, data_lat, data_time = remove_nans(data)
+    x_start, y_start, x_size, y_size = setup_spatial_grid_bounds(x_boundary, y_boundary, resolution)
+    t_start, t_size = setup_temporal_grid_bounds(data_time, t_resolution)
     
     block_mean = block_mean_loop_time_(x_size,y_size,t_size,resolution,t_resolution,x_start,y_start,t_start,data_lon,data_lat,data_time,vals)
 
-    # timer.stop()
     return block_mean
 
 def make_interp_time(data_path: List[Path]) -> int:
@@ -142,7 +157,7 @@ def setup_gridding(
     ocean_mask = ~np.isnan(land_mask.z.data)
     output = np.empty(list(ocean_mask.shape)+[n_output_variables], dtype=np.float64)
     output.fill(np.nan)
-    times = np.ones(len(interp_lons.flatten()),dtype=np.int64)*interp_time
+    times = np.ones(len(interp_lons.flatten()),dtype=np.float64)*interp_time
     interp_coords = np.vstack((interp_lons.flatten(),interp_lats.flatten(),times)).T
     ocean_mask_flat = ocean_mask.flatten()
     return output,interp_coords[ocean_mask_flat],ocean_mask
@@ -209,18 +224,23 @@ def store_attributes(
 
 def process_grid(land_mask: xr.Dataset, processed_file: List[Path], interp_lats: np.ndarray, interp_lons: np.ndarray) -> Tuple[int, xr.Dataset | None]:
     """Full grid processing pipeline"""
-    block_grid = block_mean((-180,180),(-80,80),processed_file)
-    interp_time = make_interp_time(processed_file)
-    grid, interp_coords, ocean_mask = setup_gridding(interp_lons, interp_lats, interp_time, land_mask, block_grid.shape[1]-3)
-    
-    timer = Timer("interpolation")
-    timer.start()
-    status, output = grid_inter(interp_coords, block_grid)
-    timer.stop()
-    if status != 0:
-        return status, None
-    grid[ocean_mask] = output
-    final_grid=store_attributes(grid, processed_file, land_mask, interp_lons, interp_lats, interp_time)
+    all_data = read_data(processed_file)
+    separated_grids = []
+    for data in [all_data[["sla"]], all_data.drop("sla")]:
+        block_grid = block_mean((-180,180),(-90,90),data)
+        interp_time = make_interp_time(processed_file)
+        grid, interp_coords, ocean_mask = setup_gridding(interp_lons, interp_lats, interp_time, land_mask, block_grid.shape[1]-3)
+        
+        timer = Timer("interpolation")
+        timer.start()
+        status, output = grid_inter(interp_coords, block_grid)
+        timer.stop()
+        if status != 0:
+            return status, None
+        grid[ocean_mask] = output
+        separated_grids.append(grid)
+    combined_grids = np.concatenate(separated_grids,axis=2)
+    final_grid=store_attributes(combined_grids, processed_file, land_mask, interp_lons, interp_lats, interp_time)
     return status, final_grid
 
 def open_mult(filepaths: List[Path]):
@@ -293,19 +313,19 @@ def main():
     resolution_deg = 1 # 1, 1/4, 1/6 or 1/12
     land_mask_file = find_masking_attributes(resolution_deg)
     land_mask = xr.open_dataset(land_mask_file,engine="netcdf4").load()
-    land_mask = subset_landmask(land_mask,(-180,180),(-80,80))
+    land_mask = subset_landmask(land_mask,(-180,180),(-90,90))
     
-    interp_lons, interp_lats = make_grid(resolution_deg,resolution_deg,(-180,180),(-80,80))
+    interp_lons, interp_lats = make_grid(resolution_deg,resolution_deg,(-180,180),(-90,90))
 
     # Make commands
     commands: List[Tuple[xr.Dataset,List[Path],npt.NDArray[np.float64],npt.NDArray[np.float64]]] = []
     for file in files:
         commands.append((land_mask.copy(), file, interp_lats, interp_lons))
     
-    # for command in tqdm(commands):
-    #     _ = process_grid(*command)
-    with multiprocessing.Pool() as pool:
-        _ = pool.starmap(process_grid, commands)
+    for command in tqdm(commands):
+        _ = process_grid(*command)
+    # with multiprocessing.Pool() as pool:
+    #     _ = pool.starmap(process_grid, commands)
     
     print("Complete")
     timer.stop()
