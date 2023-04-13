@@ -186,7 +186,7 @@ def grid_inter(
         lat_column=1,
         lon_column=0,
         neighbors=500,
-        kernel="linear",
+        kernel="haversine",
         max_distance=500,
         min_points=5
     )
@@ -216,17 +216,18 @@ def store_attributes(
             )
         )
     masked_grid = masked_grid.assign_attrs(processed.attrs)
-    res = land_mask.history.split('_')[2]
     root = processed_file[1].name.split('.')[0]
-    grid_out_path = Path(f"Grids/{res}/3days/{root}_{res}.nc")
-    masked_grid.to_netcdf(grid_out_path,mode="w")
+    grid_out_path = Path(f"Grids/Processed_v3")
+    grid_out_path.mkdir(parents=True,exist_ok=True)
+    # grid_out_path = Path(f"Processed/Processed_v3/Grids/{root}.nc")
+    masked_grid.to_netcdf(grid_out_path / Path(f"{root}.nc"),mode="w")
     return masked_grid
 
 def process_grid(land_mask: xr.Dataset, processed_file: List[Path], interp_lats: np.ndarray, interp_lons: np.ndarray) -> Tuple[int, xr.Dataset | None]:
     """Full grid processing pipeline"""
     all_data = read_data(processed_file)
     separated_grids = []
-    for data in [all_data[["sla"]], all_data.drop("sla")]:
+    for data in [all_data[["sla"]]]: # [all_data[["sla"]], all_data.drop("sla")]:
         block_grid = block_mean((-180,180),(-90,90),data)
         interp_time = make_interp_time(processed_file)
         grid, interp_coords, ocean_mask = setup_gridding(interp_lons, interp_lats, interp_time, land_mask, block_grid.shape[1]-3)
@@ -279,7 +280,7 @@ def main():
     timer = Timer("total")
     timer.start()
     # Paths
-    PROCESSED = Path("Processed", "all")
+    PROCESSED = Path("Processed", "Processed_v3")
     GRIDS = Path("Grids")
     GRIDS_01D = GRIDS / Path("01d")
     GRIDS_15M = GRIDS / Path("15m")
@@ -290,7 +291,7 @@ def main():
     GRIDS_15M.mkdir(parents=True, exist_ok=True)
     GRIDS_10M.mkdir(parents=True, exist_ok=True)
     GRIDS_05M.mkdir(parents=True, exist_ok=True)
-    files = PROCESSED.glob("2004_6_*.nc")
+    files = PROCESSED.glob("2014_9_*.nc")
     
     dates = []
     for file in files:

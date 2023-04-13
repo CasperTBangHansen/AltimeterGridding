@@ -35,10 +35,31 @@ def inverse_quadratic(x, y):
 def gaussian(x, y):
     return np.exp(-np.linalg.norm(x - y)**2)
 
-
 def cosine(x, y):
-    return 1 - (np.dot(x, y) / (np.linalg.norm(x) * np.linalg.norm(y)))
+    return -100*(1 - (np.dot(x,y) / (np.linalg.norm(x) * np.linalg.norm(y))))
 
+def haversine_distance(lat1,lat2,lon1,lon2):
+    return 2*6371*np.arcsin(
+        np.sqrt(
+            np.square(
+                np.sin((lat2-lat1)/2)
+            )+np.cos(lat1)*np.cos(lat2)*np.square(
+                np.sin((lon2-lon1)/2)
+            )
+        )
+    )
+
+def great_circle_distance(lat1,lat2,lon1,lon2):
+    ML = (lat1+lat2)/2
+    K1 = 111.13209-0.56606*np.cos(2*ML)+0.0012*np.cos(4*ML)
+    K2 = 111.41513*np.cos(ML)-0.09455*np.cos(3*ML)+0.00012*np.cos(5*ML)
+    return np.sqrt(np.square(K1*(lat1-lat2))+np.square(K2*(lon1-lon2)))
+
+def haversine(x, y):
+    lon1,lat1 = x[0]*np.pi/180,x[1]*np.pi/180
+    lon2,lat2 = y[0]*np.pi/180,y[1]*np.pi/180
+    delta_t = x[2]-y[2]
+    return -np.sqrt(np.square(.1*haversine_distance(lat1,lat2,lon1,lon2)) + .75*np.square(delta_t)) # 0.1 spatial, 0.5 temporal
 
 NAME_TO_FUNC = {
    "linear": linear,
@@ -49,7 +70,8 @@ NAME_TO_FUNC = {
    "inverse_multiquadric": inverse_multiquadric,
    "inverse_quadratic": inverse_quadratic,
    "gaussian": gaussian,
-   "cosine": cosine
+   "cosine": cosine,
+   "haversine": haversine
 }
 
 

@@ -10,7 +10,7 @@ from scipy.special import comb
 from scipy.linalg.lapack import dgesv  # type: ignore[attr-defined]
 from haversine import haversine_vector
 
-from scipy.interpolate._rbfinterp_pythran import (_build_system,
+from ._rbfinterp_pythran import (_build_system,
                                  _build_evaluation_coefficients,
                                  _polynomial_matrix)
 
@@ -27,12 +27,14 @@ _AVAILABLE = {
     "multiquadric",
     "inverse_multiquadric",
     "inverse_quadratic",
-    "gaussian"
+    "gaussian",
+    "cosine",
+    "haversine"
     }
 
 
 # The shape parameter does not need to be specified when using these RBFs.
-_SCALE_INVARIANT = {"linear", "thin_plate_spline", "cubic", "quintic"}
+_SCALE_INVARIANT = {"linear", "thin_plate_spline", "cubic", "quintic","cosine","haversine"}
 
 
 # For RBFs that are conditionally positive definite of order m, the interpolant
@@ -45,7 +47,9 @@ _NAME_TO_MIN_DEGREE = {
     "linear": 0,
     "thin_plate_spline": 1,
     "cubic": 1,
-    "quintic": 2
+    "quintic": 2,
+    "cosine": 0,
+    "haversine": 0
 }
 
 
