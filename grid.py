@@ -304,18 +304,11 @@ def store_attributes(
             )
         )
     masked_grid = masked_grid.assign_attrs(processed.attrs)
-<<<<<<< HEAD
     root = processed_file[1].name.split('.')[0]
-    grid_out_path = Path(f"Grids/Processed_v4")
+    grid_out_path = Path(f"Grids/Processed_v3")
     grid_out_path.mkdir(parents=True,exist_ok=True)
     # grid_out_path = Path(f"Processed/Processed_v3/Grids/{root}.nc")
     masked_grid.to_netcdf(grid_out_path / Path(f"{root}.nc"),mode="w")
-=======
-    res: str = land_mask.history.split('_')[2]
-    root = processed_file[1].name.split('.')[0]
-    grid_out_path = Path(OUTPUT_GRID_PATH_FORMAT.format(res=res, root=root))
-    masked_grid.to_netcdf(grid_out_path, mode="w")
->>>>>>> 0d418e6 (Refactor)
     return masked_grid
 
 def process_grid(land_mask: xr.Dataset, processed_file: List[Path], interp_lats: np.ndarray, interp_lons: np.ndarray) -> Tuple[ExitCode, xr.Dataset | None]:
@@ -323,23 +316,22 @@ def process_grid(land_mask: xr.Dataset, processed_file: List[Path], interp_lats:
 <<<<<<< HEAD
     all_data = read_data(processed_file)
     separated_grids = []
-    # timer = Timer(f"{processed_file[1]}")
-    # timer.start()
-    for data in [all_data[["sla"]], all_data.drop("sla")]:
+    for data in [all_data[["sla"]]]: # [all_data[["sla"]], all_data.drop("sla")]:
         block_grid = block_mean((-180,180),(-90,90),data)
         interp_time = make_interp_time(processed_file)
         grid, interp_coords, ocean_mask = setup_gridding(interp_lons, interp_lats, interp_time, land_mask, block_grid.shape[1]-3)
         
-        # timer = Timer("interpolation")
-        # timer.start()
+        timer = Timer("interpolation")
+        timer.start()
         status, output = grid_inter(interp_coords, block_grid)
-        # timer.stop()
+        timer.stop()
         if status != 0:
             return status, None
         grid[ocean_mask] = output
         separated_grids.append(grid)
     combined_grids = np.concatenate(separated_grids,axis=2)
     final_grid=store_attributes(combined_grids, processed_file, land_mask, interp_lons, interp_lats, interp_time)
+<<<<<<< HEAD
     # timer.stop()
 =======
     # Block mean
@@ -362,6 +354,8 @@ def process_grid(land_mask: xr.Dataset, processed_file: List[Path], interp_lats:
     grid[ocean_mask] = output
     final_grid = store_attributes(grid, processed_file, land_mask, interp_lons, interp_lats, interp_time)
 >>>>>>> 0d418e6 (Refactor)
+=======
+>>>>>>> parent of 2a49b9f (Updated with clean(er) data)
     return status, final_grid
 
 def open_mult(filepaths: List[Path]):
@@ -401,7 +395,7 @@ def main():
     timer = Timer("total")
     timer.start()
     # Paths
-    PROCESSED = Path("Processed", "Processed_v4")
+    PROCESSED = Path("Processed", "Processed_v3")
     GRIDS = Path("Grids")
     GRIDS_01D = GRIDS / Path("01d")
     GRIDS_15M = GRIDS / Path("15m")
@@ -412,10 +406,14 @@ def main():
     GRIDS_15M.mkdir(parents=True, exist_ok=True)
     GRIDS_10M.mkdir(parents=True, exist_ok=True)
     GRIDS_05M.mkdir(parents=True, exist_ok=True)
+<<<<<<< HEAD
     files = PROCESSED.glob("*.nc")
 =======
 def group_valid_files(base_path: Path, pattern: str) -> List[List[Path]]:
 >>>>>>> 0d418e6 (Refactor)
+=======
+    files = PROCESSED.glob("2014_9_*.nc")
+>>>>>>> parent of 2a49b9f (Updated with clean(er) data)
     
     # Find all paths and get their datees
     files = base_path.glob(pattern)
@@ -436,9 +434,9 @@ def group_valid_files(base_path: Path, pattern: str) -> List[List[Path]]:
 <<<<<<< HEAD
         if dates[i]+timedelta(days=1) == dates[i+1]:
             d.append(dates[i+1])
-        if len(d)==3:
-            fls = [PROCESSED / Path(f"{Date.year}_{Date.month}_{Date.day}.nc") for Date in d]
-            files.append(fls)
+
+        fls = [PROCESSED / Path(f"{Date.year}_{Date.month}_{Date.day}.nc") for Date in d]
+        files.append(fls)
 
     resolution_deg = 1 # 1, 1/4, 1/6 or 1/12
     land_mask_file = find_masking_attributes(resolution_deg)
@@ -476,8 +474,6 @@ def main():
         commands.append((land_mask.copy(), file, interp_lats, interp_lons))
     
     for command in tqdm(commands):
-        if Path(f"Grids/Processed_v4/{command[1][1].name}").exists():
-            continue
         _ = process_grid(*command)
     # with multiprocessing.Pool() as pool:
     #     _ = pool.starmap(process_grid, commands)
