@@ -1,8 +1,17 @@
-from src import main_cycle_to_dates, concatenate_date_netcdf_files
+from pathlib import Path
+from src.concatenateFiles import process_netcdfs, concatenate_date_netcdf_files
 
 def main():
-    main_cycle_to_dates()
-    concatenate_date_netcdf_files()
+    DATAPATH = Path("radsCycles")
+    POLARPATH = Path("radsPolar")
+    PROCESSEDPATH = Path("Processed_v4")
+    FILEMATCHING = '*.nc'
+    CROSSOVER_BASEPATH = Path("radsXover")
+    process_netcdfs(DATAPATH, POLARPATH, CROSSOVER_BASEPATH, PROCESSEDPATH, FILEMATCHING)
+
+    OUTFOLDER = PROCESSEDPATH / Path('all')
+    INPUTFILES = PROCESSEDPATH.glob('[!all]*/*.nc')
+    concatenate_date_netcdf_files(INPUTFILES, OUTFOLDER)
 
 if __name__ == '__main__':
     main()

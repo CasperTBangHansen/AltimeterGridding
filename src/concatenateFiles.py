@@ -1,9 +1,16 @@
 from tqdm import tqdm
 import xarray as xr
+import numpy as np
 from pathlib import Path
 from collections import defaultdict
 import multiprocessing
-from typing import List, Tuple, Dict, Any, Iterable
+from . import correction
+from .fileManipulation import load_netcdfs, read_netcdfs_concat, export_groups
+from typing import List, Dict, Any, Iterable
+
+BOUNDARY_LAT = {
+    "c2": [65, -53]
+}
 
 def combine_dicts(dictionaries: Iterable[Dict[Any, Any]]) -> Dict[Any, Any | List[Any]]:
     """
@@ -40,10 +47,6 @@ def combine_attributes(datasets: Iterable[xr.Dataset], invalid_attrs: Iterable[s
         combined_attrs.pop(attr, None)
     return combined_attrs
 
-def load_netcdfs(paths: Iterable[Path]) -> List[xr.Dataset]:
-    """Loads a list of netCDF files"""
-    return [xr.open_dataset(p.as_posix()) for p in paths]
-
 def read_netcdfs_merge(paths: Iterable[Path], dimension: str) -> xr.Dataset:
     """
     Loads all files defined in paths and concatenates them by the
@@ -61,21 +64,6 @@ def read_netcdfs_merge(paths: Iterable[Path], dimension: str) -> xr.Dataset:
     combined.attrs['total_points'] = sum(combined.attrs['n_points'])
     return combined
 
-def read_netcdfs_concat(paths: Iterable[Path], dimension: str) -> xr.Dataset:
-    """
-    Loads all files defined in paths and concatenates them by the
-    given dimension
-    """
-    return xr.concat(load_netcdfs(paths), dimension)
-
-def get_name_format(dataset: xr.Dataset) -> str:
-    """Takes the first element of the datasets time and converts it to a string"""
-    time = dataset.time[0].dt
-    year = time.year.item()
-    month = time.month.item()
-    day = time.day.item()
-    return f"{year}_{month}_{day}.nc"
-
 def group_by_name(files: Iterable[Path]) -> Dict[str, List[Path]]:
     """
     Groups paths by the file names.
@@ -87,66 +75,74 @@ def group_by_name(files: Iterable[Path]) -> Dict[str, List[Path]]:
         grouped_files[date].append(file)
     return grouped_files
 
-def export_groups(folderpath: Path, groups: List[Tuple[int, xr.Dataset]]) -> None:
-    """
-    Exports a grouped dataset.
-    Each group will be exported to a file in the folderpath folder.
-    The name of the each file will be the first time formatted to {year}_{month}_{day}.nc
-    """
-    folderpath.mkdir(parents=True, exist_ok=True)
-    for _, arr in groups:
-        arr.to_netcdf(folderpath / Path(get_name_format(arr)))
+def merge_with_polar(polarfiles: List[Path], data: xr.Dataset) -> xr.Dataset:
+    """ Merge polar data with original dataset."""
+    # Load polar data
+    polar_data = (
+        read_netcdfs_concat(sorted(polarfiles), 'time')
+        .load()
+        .set_coords(("time", "lat", "lon"))
+    )
+    
+    # Find missing datavars
+    missing_data_vars = set(data.data_vars) - set(polar_data.data_vars)
 
-def process_netcdfs(datapath: Path, outputpath: Path, filematching: str) -> None:
+    # Set missing datavars to nan
+    missing_variables = np.empty((len(missing_data_vars), polar_data.dims['time']), dtype=np.float64)
+    missing_variables.fill(np.nan)
+    for var, val in zip(missing_data_vars, missing_variables):
+        polar_data = polar_data.assign(**{var: (['time'], val)}) # type: ignore
+
+    # Concatenate with original
+    return xr.concat([data, polar_data], dim='time').sortby('time')
+
+def process_netcdfs(datapath: Path, polarpath: Path, crossover_basepath: Path, outputpath: Path, filematching: str) -> None:
     """Processes all the netcdf4 files into a daily file"""
     # Process data
     for satellite in (pbar := tqdm(datapath.glob("*"), position=1)):
         pbar.set_description(f"Processing {satellite.name}")
-        
-        # Load netcdf files
-        data = read_netcdfs_concat(sorted(satellite.glob(filematching)), 'time')
+        if (outputpath / Path(satellite.name)).exists():
+            continue
 
+        # Load netcdf files
+        data = read_netcdfs_concat(sorted(satellite.glob(filematching)), 'time').sortby('time').load()
+
+        # Remove data outside boundary
+        if (boundary := BOUNDARY_LAT.get(satellite.name)) is not None:
+            data = data.isel(time=(data.lat <= boundary[0]) & (data.lat >= boundary[1]))
+
+        # Get polar data of any exists
+        polarfiles = list((polarpath / Path(satellite.name)).glob(filematching))
+        if polarfiles:
+            pbar.set_description(f"Processing {satellite.name} with polar paths")
+            data = merge_with_polar(polarfiles, data)
+
+        # Correct using crossover points
+        correction.correct_netcdf(data, crossover_basepath, satellite.name, 'sla')
+        
         # Group data in the netcdf files into dates
         groups = list(data.groupby('time.date'))
 
         # Export files
         export_groups(outputpath / Path(satellite.name), groups)
 
-def main_cycle_to_dates() -> None:
-    """
-    Converts netcdf files containing cycles to
-    netcdf files containing dates
-    """
-    DATAPATH = Path("radsCycles")
-    PROCESSEDPATH = Path("Processed")
-    FILEMATCHING = '*.nc'
-    process_netcdfs(DATAPATH, PROCESSEDPATH, FILEMATCHING)
-
 def task(folder_path: Path, date: str, group: Iterable[Path]) -> None:
     """Task for running grouping in parallel and saving them"""
     data = read_netcdfs_merge(group, 'time')
     data.to_netcdf(folder_path / Path(f"{date}.nc"))
 
-def concatenate_date_netcdf_files() -> None:
+def concatenate_date_netcdf_files(datapaths: Iterable[Path], outputpath: Path) -> None:
     """
     Concatenates all files with the same datename
     and sets some attributes in the output files
     """
-    DATAPATH = Path("Processed")
-    OUTFOLDER = DATAPATH / Path('all')
-
     # Get files and make dirs
-    files = DATAPATH.glob('[!all]*/*.nc')
-    OUTFOLDER.mkdir(parents=True, exist_ok=True)
+    outputpath.mkdir(parents=True, exist_ok=True)
 
     # Group files by date
-    grouped_files = group_by_name(files)
+    grouped_files = group_by_name(datapaths)
         
     # Process each group of files
-    items = [(OUTFOLDER,) + item for item in grouped_files.items()]
+    items = [(outputpath,) + item for item in grouped_files.items()]
     with multiprocessing.Pool(4) as pool:
         pool.starmap(task, items)
-
-if __name__ == '__main__':
-    main_cycle_to_dates()
-    concatenate_date_netcdf_files()
