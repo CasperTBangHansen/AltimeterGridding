@@ -17,7 +17,8 @@ class Database:
         self.session = sessionmaker(self.engine)
         if create_tables:
             tables.create_all_tables(self.engine)
-        self.add_user(environ["DEFAULT_USERNAME"], environ["DEFAULT_PASSWORD"])
+        if (((d_user := environ.get("DEFAULT_USERNAME")) is not None) and ((d_password := environ.get("DEFAULT_PASSWORD")) is not None)):
+            self.add_user(d_user, d_password)
 
     def check_add(self, model: Any, expire_on_commit: bool = True, **kwargs) -> bool:
         """ Checks if the model alreay exists. If it does not it adds it"""
