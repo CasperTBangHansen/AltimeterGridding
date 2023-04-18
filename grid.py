@@ -301,7 +301,7 @@ def process_grid(
     # Export file
     date_str = processed_file[1].name.split('.')[0]
     grid_path = Path(output_path_format.format(date=date_str))
-    grid_path.mkdir(parents=True, exist_ok=True)
+    grid_path.parent.mkdir(parents=True, exist_ok=True)
     final_grid.to_netcdf(grid_path, mode="w")
 
     return status
@@ -343,8 +343,8 @@ def main():
     INTERPOLATION_GROUPS = [['sla'], ['sst', 'swh', 'wind_speed']]
 
     PIPELINE_VERSION = 4 # Pipeline version
-    OUTPUT_GRID_PATH_FORMAT = "Grids/v{version}/{date}.nc".format(version=PIPELINE_VERSION) # Output format
-    PROCESSED = Path("Processed_v4") # Input folder
+    OUTPUT_GRID_PATH_FORMAT = "Grids/v{version}/{{date}}.nc".format(version=PIPELINE_VERSION) # Output format
+    PROCESSED = Path("Processed","Processed_v4") # Input folder
     DEFAULT_GLOB = "*.nc"
 
     timer = Timer("total")
