@@ -3,10 +3,9 @@ from sqlalchemy import ForeignKey, String, Engine, Double, Text, text
 import sqlalchemy.orm as orm
 import geoalchemy2 as geo
 import bcrypt
-from typing import List, Any, Dict, overload, Sequence
+from typing import List, Any, Dict, overload, Sequence, Optional
 from os import environ
 
-SALT: bytes = environ["SALT"].encode()
 BaseClass: Any = orm.declarative_base() # type: ignore
 Base: orm.DeclarativeMeta = BaseClass
 class User(BaseClass):
@@ -17,9 +16,14 @@ class User(BaseClass):
     password: orm.Mapped[str] = orm.mapped_column(Text)
 
     @staticmethod
-    def hash_password(password: str) -> str:
+    def hash_password(password: str, salt: Optional[bytes] = None) -> str:
         """ Hashes the password"""
-        return bcrypt.hashpw(password.encode(), SALT).decode()
+        if salt is None:
+            if((salt_str := environ.get("SALT")) is None):
+                raise KeyError("SALT was not set as an environment variable and was not provided as an argument")
+            else:
+                salt = salt_str.encode()
+        return bcrypt.hashpw(password.encode(), salt).decode()
 
     def verify_password(self, username: str, password: str):
         """ Checks the password and username"""
