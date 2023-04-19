@@ -254,8 +254,8 @@ def store_attributes(
 def process_grid(
         land_mask: xr.Dataset,
         processed_file: List[Path],
-        interp_lats: np.ndarray,
-        interp_lons: np.ndarray,
+        interp_lats: npt.NDArray[np.float64],
+        interp_lons: npt.NDArray[np.float64],
         grid_grouped_variables: List[List[str]],
         temporal_resolution: int,
         spatial_resolution: float,
@@ -302,7 +302,7 @@ def process_grid(
     date_str = processed_file[1].name.split('.')[0]
     grid_path = Path(output_path_format.format(date=date_str))
     grid_path.parent.mkdir(parents=True, exist_ok=True)
-    final_grid.to_netcdf(grid_path, mode="w")
+    final_grid.to_netcdf(grid_path, mode="w", engine="netcdf4")
 
     return status
 
@@ -337,6 +337,7 @@ def group_valid_files(base_path: Path, files: Iterable[Path]) -> List[List[Path]
 
 def main():
     # CONST
+    MULTIPROCESSING = True
     GRID_RESOLUTION = 1 # deg
     BLOCKMEAN_SPATIAL_RESOLUTION = 1/6 # deg
     BLOCKMEAN_TEMPORAL_RESOLUTION = 3 # hours
@@ -344,8 +345,8 @@ def main():
 
     PIPELINE_VERSION = 4 # Pipeline version
     OUTPUT_GRID_PATH_FORMAT = "Grids/v{version}/{{date}}.nc".format(version=PIPELINE_VERSION) # Output format
-    PROCESSED = Path("Processed","Processed_v4") # Input folder
-    DEFAULT_GLOB = "*.nc"
+    PROCESSED = Path(r"C:\Users\Casper\Desktop\day_data\Processed_v4") # Input folder
+    DEFAULT_GLOB = "1991_*.nc"
 
     timer = Timer("total")
     timer.Start()
@@ -383,14 +384,27 @@ def main():
     ]
     
     # Execute commands
+    valid_commands: List[
+        Tuple[
+            xr.Dataset, List[Path], npt.NDArray[np.float64],
+            npt.NDArray[np.float64], list[list[str]], int, float, str
+        ]
+    ] = []
     for command in tqdm(commands):
         date_str = command[1][1].name.split('.')[0]
         grid_path = Path(OUTPUT_GRID_PATH_FORMAT.format(date=date_str))
         if grid_path.exists():
             continue
-        _ = process_grid(*command)
-    # with multiprocessing.Pool() as pool:
-    #     _ = pool.starmap(process_grid, commands)
+        if MULTIPROCESSING:
+            valid_commands.append(command)
+        else:
+            _ = process_grid(*command)
+    if MULTIPROCESSING and valid_commands:
+        if (command := valid_commands[0]):
+            date_str = command[1][1].name.split('.')[0]
+            print(f"Starting from {date_str}")
+        with multiprocessing.Pool() as pool:
+            _ = pool.starmap(process_grid, commands)
     
     print("Complete")
     timer.Stop()

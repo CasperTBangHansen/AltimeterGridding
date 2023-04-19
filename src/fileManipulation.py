@@ -6,13 +6,13 @@ import xarray as xr
 def import_data(data_path: Iterable[Path] | Path) -> xr.Dataset:
     """import netcdf data from file(s)"""
     if isinstance(data_path, Path):
-        return xr.open_dataset(data_path)
+        return xr.open_dataset(data_path, engine="netcdf4")
     else:
         return read_netcdfs_concat(data_path)
 
 def load_netcdfs(paths: Iterable[Path]) -> List[xr.Dataset]:
     """Loads a list of netCDF files"""
-    return [xr.open_dataset(p.as_posix()) for p in paths]
+    return [xr.open_dataset(p.as_posix(), engine="netcdf4") for p in paths]
 
 def read_netcdfs_concat(paths: Iterable[Path], dimension: Optional[Hashable] = None) -> xr.Dataset:
     """
@@ -36,7 +36,7 @@ def get_name_format(dataset: xr.Dataset) -> str:
 def _export(arr: xr.Dataset, folderpath: Path):
     arr.to_netcdf(folderpath / Path(get_name_format(arr)))
 
-def export_groups(folderpath: Path, groups: List[Tuple[int, xr.Dataset]]) -> None:
+def export_groups(folderpath: Path, groups: List[Tuple[int, xr.Dataset]], n_cores: int = 8) -> None:
     """
     Exports a grouped dataset.
     Each group will be exported to a file in the folderpath folder.
@@ -44,5 +44,5 @@ def export_groups(folderpath: Path, groups: List[Tuple[int, xr.Dataset]]) -> Non
     """
 
     folderpath.mkdir(parents=True, exist_ok=True)
-    with multiprocessing.Pool(8) as pool:
+    with multiprocessing.Pool(n_cores) as pool:
         pool.starmap(_export, [(g[1], folderpath) for g in groups])
