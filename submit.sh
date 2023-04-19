@@ -9,7 +9,7 @@
 ### -- specify that we need 6GB of memory per core/slot -- 
 #BSUB -R "rusage[mem=6GB]"
 ### -- one host per job
-#BSUB -R "spac[hosts=1]"
+#BSUB -R "span[hosts=1]"
 ### -- Use specific hardware
 #BSUB -R "select[model == XeonGold6626R]"
 ### -- set walltime limit: hh:mm -- 
