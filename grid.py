@@ -19,7 +19,7 @@ def file_to_date(file):
     ints = list(map(int, strs))
     return date(year=ints[0], month=ints[1], day=ints[2])       
 
-def group_valid_files(base_path: Path, files: Iterable[Path], n_days: int) -> List[Tuple[date, List[Path]]]:
+def group_valid_files(base_path: Path, files: Iterable[Path], n_days: int) -> List[Tuple[str, List[Path]]]:
     # Find all paths and get their datees
     dates = []
     for file in files:
@@ -40,7 +40,8 @@ def group_valid_files(base_path: Path, files: Iterable[Path], n_days: int) -> Li
 
         fls = [f for Date in d if (f := base_path / Path(f"{Date.year}_{Date.month}_{Date.day}.nc")).exists()]
         if fls:
-            out_files.append((dates[i], fls))
+            current_date_str = f"{dates[i].year}_{dates[i].month}_{dates[i].day}"
+            out_files.append((current_date_str, fls))
     return out_files
 
 def adapt_file_list(processed: Path, default_glob: str, n_days: int):
@@ -100,13 +101,12 @@ def main():
     # Execute commands
     valid_commands: List[
         Tuple[
-            xr.Dataset, List[Path], npt.NDArray[np.float64],
-            npt.NDArray[np.float64], List[List[str]], float, float, str
+            xr.Dataset, Tuple[str,List[Path]], npt.NDArray[np.float64],
+            npt.NDArray[np.float64], List[List[str]], int, float, str
         ]
     ] = []
     for command in tqdm(commands):
-        date_str = command[1][1].name.split('.')[0]
-        grid_path = Path(output_grid_path_format.format(date=date_str))
+        grid_path = Path(output_grid_path_format.format(date=command[1][0]))
         if grid_path.exists():
             continue
         if general.multiprocessing:
@@ -115,8 +115,7 @@ def main():
             _ = process_grid(*command)
     if general.multiprocessing and valid_commands:
         if (command := valid_commands[0]):
-            date_str = command[1][1].name.split('.')[0]
-            print(f"Starting from {date_str}")
+            print(f"Starting from {command[1][0]}")
         with multiprocessing.Pool() as pool:
             _ = pool.starmap(process_grid, commands)
     

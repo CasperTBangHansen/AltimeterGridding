@@ -21,7 +21,7 @@ class Paths(pydantic.BaseModel):
 class GridParameters(pydantic.BaseModel):
     grid_resolution: int
     blockmean_spatial_resolution: float
-    blockmean_temporal_resolution: float
+    blockmean_temporal_resolution: int
     interpolation_groups: List[List[str]]
 
     @pydantic.validator("blockmean_spatial_resolution", pre=True)

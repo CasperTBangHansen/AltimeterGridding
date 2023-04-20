@@ -30,7 +30,7 @@ def setup_gridding(
 
 def process_grid(
         land_mask: xr.Dataset,
-        processed_file: List[Path],
+        processed_file: Tuple[str,List[Path]],
         interp_lats: npt.NDArray[np.float64],
         interp_lons: npt.NDArray[np.float64],
         grid_grouped_variables: List[List[str]],
@@ -43,7 +43,7 @@ def process_grid(
     status = ExitCode.FAILURE
 
     # Load data
-    all_data = import_data(processed_file)
+    all_data = import_data(processed_file[1])
 
     # Get time to interpolate to
     interp_time = make_interp_time(all_data)
@@ -77,8 +77,7 @@ def process_grid(
     final_grid = store_attributes(combined_grids, all_data, interp_lons, interp_lats, interp_time)
     
     # Export file
-    date_str = processed_file[1].name.split('.')[0]
-    grid_path = Path(output_path_format.format(date=date_str))
+    grid_path = Path(output_path_format.format(date=processed_file[0]))
     grid_path.parent.mkdir(parents=True, exist_ok=True)
     final_grid.to_netcdf(grid_path, mode="w", engine="netcdf4")
 
