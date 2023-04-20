@@ -10,3 +10,4 @@ bcrypt
 sqlalchemy
 psycopg2
 geoalchemy2
+pydantic

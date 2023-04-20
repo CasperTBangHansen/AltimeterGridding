@@ -1,5 +1,5 @@
 from pathlib import Path
-from src.concatenateFiles import process_netcdfs, concatenate_date_netcdf_files
+from src.fileHandler.concatenateFiles import process_netcdfs, concatenate_date_netcdf_files
 
 def main():
     DATAPATH = Path("radsCycles")

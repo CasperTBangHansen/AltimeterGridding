@@ -4,7 +4,7 @@ import numpy as np
 from pathlib import Path
 from collections import defaultdict
 import multiprocessing
-from . import correction
+from .. import correction
 from .fileManipulation import load_netcdfs, read_netcdfs_concat, export_groups
 from typing import List, Dict, Any, Iterable
 
