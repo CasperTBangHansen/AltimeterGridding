@@ -3,3 +3,4 @@ from ._rbfinterp import RBFInterpolator
 from .block_mean_funcs import block_mean, make_interp_time, make_grid
 from .return_codes import ExitCode
 from .gridding import process_grid
+from .gridding_arguments import Arguments, ConstructArguments

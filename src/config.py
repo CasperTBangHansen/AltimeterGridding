@@ -5,13 +5,15 @@ import json
 import re
 from pathlib import Path
 
-def is_float(element: str):
+def is_float(element: str) -> bool:
+    """ Checks if a string can be converted to a float"""
     return re.match(r'^-?\d+(?:\.\d+)$', element) is not None
 
 class General(pydantic.BaseModel):
     pipeline_version: int
     multiprocessing: bool
     number_of_days: int
+    overwrite_grids: bool
 
 class Paths(pydantic.BaseModel):
     grid_path_format: str
