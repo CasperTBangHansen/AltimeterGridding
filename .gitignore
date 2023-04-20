@@ -139,3 +139,4 @@ gmt.history
 *.png
 *.gif
 src/RBF_new/*
+config.ini

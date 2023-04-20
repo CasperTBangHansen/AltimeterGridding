@@ -47,4 +47,3 @@ def parse_config(path: Path) -> Tuple[General, GridParameters, Paths]:
     gridParameters = GridParameters(**config["GridParameters"]) # type: ignore
     paths = Paths(**config["Paths"]) # type: ignore
     return general, gridParameters, paths
-parse_config('config.ini')
