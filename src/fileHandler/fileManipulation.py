@@ -90,14 +90,14 @@ def group_valid_files(base_path: Path, files: Iterable[Path], n_days: int) -> Li
 
 def adapt_file_list(processed: Path, default_glob: str, n_days: int) -> List[FileMapping]:
 
-    if ((jobidx := os.environ.get("LSB_JOBINDEX")) is None):
+    if ((jobidx := os.environ.get("LSB_JOBINDEX")) is None or jobidx == '0'):
         return group_valid_files(processed, processed.glob(default_glob), n_days=n_days)
     else:
         jobidx_int = int(jobidx)
         year_files = list(processed.glob(f"{jobidx}*.nc"))
         first_date = date(year=jobidx_int, month=1, day=1)
         last_date = date(year=jobidx_int, month=12, day=31)
-        for i in range(1,n_days+1):
+        for i in range(1, n_days + 1):
             date_before = (first_date - timedelta(days=i)).strftime("%Y_%m_%d")
             date_after = (last_date + timedelta(days=i)).strftime("%Y_%m_%d")
             year_files.extend([

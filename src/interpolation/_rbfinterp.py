@@ -191,7 +191,9 @@ class RBFInterpolator:
             - 'thin_plate_spline' : 1
             - 'cubic'             : 1
             - 'quintic'           : 2
-
+    distance_to_time_scaling: float
+        feature scale maximum time to maximum distance
+    
         The default value is the minimum degree for `kernel` or 0 if there is
         no minimum degree. Set this to -1 for no added polynomial.
 
@@ -300,6 +302,7 @@ class RBFInterpolator:
     def __init__(self, y, d,
                  lon_column,
                  lat_column,
+                 distance_to_time_scaling,
                  neighbors=None,
                  min_points=None,
                  max_distance=None,
@@ -420,6 +423,7 @@ class RBFInterpolator:
         self.epsilon = epsilon
         self.powers = powers
         self.latlon_columns = [lat_column, lon_column]
+        self.distance_to_time_scaling = distance_to_time_scaling
 
     def _chunk_evaluator(
             self,
@@ -569,7 +573,7 @@ class RBFInterpolator:
         x[:, -1] = 0
         # Get min max feature values (a,b)
         min_dist = 0
-        max_dist = .5*latlon_distances.max()
+        max_dist = self.distance_to_time_scaling * latlon_distances.max()
 
         # Get min max values
         y_valid = self.y[yindices]

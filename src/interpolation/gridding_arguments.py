@@ -5,8 +5,17 @@ import xarray as xr
 import numpy as np
 import numpy.typing as npt
 from ..fileHandler import FileMapping
+from .. import config
 
-Arguments = Tuple[xr.Dataset, FileMapping, npt.NDArray[np.float64], npt.NDArray[np.float64], List[List[str]], int, float, str]
+Arguments = Tuple[
+    xr.Dataset,
+    FileMapping,
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    config.GridParameters,
+    config.InterpolationParameters,
+    str
+]
 
 @dataclass
 class ConstructArguments:
@@ -14,9 +23,8 @@ class ConstructArguments:
     _file_mappings: List[FileMapping] = field(default_factory=list, init=False)
     interp_lats: npt.NDArray[np.float64]
     interp_lons: npt.NDArray[np.float64]
-    interpolation_groups: List[List[str]]
-    blockmean_temporal_resolution: int
-    blockmean_spatial_resolution: float
+    gridParameters: config.GridParameters
+    interpolationParameters: config.InterpolationParameters
     output_grid_path_format: str
     _pos: int = field(default=0, init=False)
 
@@ -45,8 +53,7 @@ class ConstructArguments:
     def __getitem__(self, index: int) -> Arguments:
         return (
             self.land_mask.copy(), self._file_mappings[index], self.interp_lats,
-            self.interp_lons, self.interpolation_groups,
-            self.blockmean_temporal_resolution, self.blockmean_spatial_resolution,
+            self.interp_lons, self.gridParameters, self.interpolationParameters,
             self.output_grid_path_format
         )
 

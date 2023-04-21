@@ -5,6 +5,7 @@ import xarray as xr
 from pathlib import Path
 from . import ExitCode, make_interp_time, block_mean, RBFInterpolator
 from ..fileHandler import import_data, FileMapping
+from .. import config
 
 def setup_gridding(
         interp_lons: npt.NDArray[np.float64],
@@ -33,9 +34,8 @@ def process_grid(
         processed_file: FileMapping,
         interp_lats: npt.NDArray[np.float64],
         interp_lons: npt.NDArray[np.float64],
-        grid_grouped_variables: List[List[str]],
-        temporal_resolution: int,
-        spatial_resolution: float,
+        gridParameters: config.GridParameters,
+        interpolationParameters: config.InterpolationParameters,
         output_path_format: str
     ) -> ExitCode:
     """Full grid processing pipeline"""
@@ -49,16 +49,22 @@ def process_grid(
     interp_time = make_interp_time(all_data)
 
     separated_grids = []
-    for data in (all_data[g_var] for g_var in grid_grouped_variables): # type: ignore
+    for data in (all_data[g_var] for g_var in gridParameters.interpolation_groups):
         
         # Block mean the data
-        block_grid = block_mean((-180,180), (-90,90), data, temporal_resolution, spatial_resolution)
+        block_grid = block_mean(
+            (-180, 180),
+            (-90, 90),
+            data,
+            gridParameters.blockmean_temporal_resolution,
+            gridParameters.blockmean_spatial_resolution
+        )
 
         # Setup gridding variables
         grid, interp_coords, ocean_mask = setup_gridding(interp_lons, interp_lats, interp_time, land_mask, block_grid.shape[1]-3)
         
         # Grid the data
-        status, output = grid_inter(interp_coords, block_grid)
+        status, output = grid_inter(interp_coords, block_grid, interpolationParameters)
         if status != ExitCode.SUCCESS:
             return status
     
@@ -86,14 +92,14 @@ def process_grid(
 def grid_inter(
         interp_coords: npt.NDArray[np.float64],
         block_grid: npt.NDArray[np.float64],
-        start_wrap: float = 160
+        interpolationParameters: config.InterpolationParameters,
     ) -> Tuple[ExitCode, npt.NDArray[np.float64] | None]:
     """Perform grid interpolation"""
    
     # Wrap coordinates
-    wrapped_negative = block_grid[(block_grid[:,0] > abs(start_wrap))]
+    wrapped_negative = block_grid[(block_grid[:,0] > abs(interpolationParameters.start_wrap))]
     wrapped_negative[:,0] -= 360
-    wrapped_positive = block_grid[(block_grid[:,0] < -abs(start_wrap))]
+    wrapped_positive = block_grid[(block_grid[:,0] < -abs(interpolationParameters.start_wrap))]
     wrapped_positive[:,0] += 360
     block_grid = np.vstack([block_grid, wrapped_positive, wrapped_negative])
 
@@ -107,14 +113,16 @@ def grid_inter(
             block_mean,
             lat_column=1,
             lon_column=0,
-            neighbors=500,
-            kernel="haversine",
-            max_distance=500,
-            min_points=5
+            neighbors=interpolationParameters.n_neighbors,
+            kernel=interpolationParameters.kernel,
+            max_distance=interpolationParameters.max_distance_km,
+            min_points=interpolationParameters.min_points,
+            distance_to_time_scaling=interpolationParameters.distance_to_time_scaling
         )
+        grid = interpolator(interp_coords)
     except:
         return ExitCode.FAILURE, None
-    return ExitCode.SUCCESS, interpolator(interp_coords)
+    return ExitCode.SUCCESS, grid
 
 def store_attributes(
         masked_grid: xr.Dataset | npt.NDArray[np.float64],

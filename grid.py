@@ -32,7 +32,7 @@ def grid(grid_arguments: ConstructArguments, file_mappings: List[FileMapping], o
 
 def main():
     # Load config files
-    general, gridParameters, paths = config.parse_config(Path("config.ini"))
+    general, gridParameters, paths, interpolationParameters = config.parse_config(Path("config.ini"))
 
     # Make output format
     output_grid_path_format = paths.grid_path_format.format(version=general.pipeline_version)
@@ -55,10 +55,8 @@ def main():
     
     # Constructing arguments for gridding
     grid_arguments = ConstructArguments(
-        land_mask, interp_lats,
-        interp_lons, gridParameters.interpolation_groups,
-        gridParameters.blockmean_temporal_resolution, gridParameters.blockmean_spatial_resolution,
-        output_grid_path_format
+        land_mask, interp_lats, interp_lons,
+        gridParameters, interpolationParameters, output_grid_path_format
     )
 
     # Construct grids
