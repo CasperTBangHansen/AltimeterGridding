@@ -20,7 +20,8 @@ def grid(grid_arguments: ConstructArguments, file_mappings: List[FileMapping], o
 
         # Process later if multiprocessing is enabled otherwise process
         if not multiprocess:
-            _ = process_grid(*grid_arguments.current_argument())
+            print(f"Processing {file_mapping.computation_date}, status = ", end='')
+            print(process_grid(*grid_arguments.current_argument()))
 
     # Execute commands using multiprocessing
     if multiprocess and grid_arguments:

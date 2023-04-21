@@ -66,14 +66,15 @@ def file_to_date(file):
 
 def group_valid_files(base_path: Path, files: Iterable[Path], n_days: int) -> List[FileMapping]:
     # Find all paths and get their datees
-    dates = []
+    dates: List[date] = []
     for file in files:
         dt = file_to_date(file)
         dates.append(dt)
     dates.sort()
     # if len(dates) != (max(dates) - min(dates)).days + 1:
-    date_span = max(dates).days - min(dates).days + 2*n_days
-    dates = [min(dates) + timedelta(days=x) for x in range(date_span)]
+    min_date = min(dates) 
+    date_span = (min_date - min(dates)).days + 2*n_days + 1
+    dates = [min_date + timedelta(days=x - n_days) for x in range(date_span)]
     
     # Get the file name before and after the current file,
     # but only if they are the previous/next date
