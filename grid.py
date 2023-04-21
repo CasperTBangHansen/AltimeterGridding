@@ -12,7 +12,7 @@ def grid(grid_arguments: ConstructArguments, file_mappings: List[FileMapping], o
     for file_mapping in file_mappings:
         # Check if grid has already been processed
         grid_path = Path(output_format.format(date=file_mapping.computation_date_str))
-        if grid_path.exists() and overwrite_grids:
+        if grid_path.exists() and not overwrite_grids:
             continue
 
         # Add filemapping to arguments
