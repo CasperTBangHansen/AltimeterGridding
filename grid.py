@@ -3,7 +3,7 @@ from typing import List
 from pathlib import Path
 import xarray as xr
 from src.interpolation import make_grid, process_grid, ConstructArguments
-from src.fileHandler import adapt_file_list, FileMapping
+from src.fileHandler import locate_date_source, FileMapping
 from src import Timer, config
 from src.landmask import subset_landmask, find_masking_attributes
 
@@ -51,7 +51,7 @@ def main():
     )
 
     # Get all groups of files
-    file_mappings = adapt_file_list(processed=paths.raw_data_path, default_glob=paths.raw_data_glob, n_days=general.number_of_days)
+    file_mappings = locate_date_source(processed=paths.raw_data_path, default_glob=paths.raw_data_glob, n_days=general.number_of_days)
     
     # Constructing arguments for gridding
     grid_arguments = ConstructArguments(

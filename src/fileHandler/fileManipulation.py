@@ -71,8 +71,9 @@ def group_valid_files(base_path: Path, files: Iterable[Path], n_days: int) -> Li
         dt = file_to_date(file)
         dates.append(dt)
     dates.sort()
-    if len(dates) != (max(dates) - min(dates)).days + 1:
-        dates = [min(dates) + timedelta(days=x) for x in range((max(dates) - min(dates)).days)]
+    # if len(dates) != (max(dates) - min(dates)).days + 1:
+    date_span = max(dates).days - min(dates).days + 2*n_days
+    dates = [min(dates) + timedelta(days=x) for x in range(date_span)]
     
     # Get the file name before and after the current file,
     # but only if they are the previous/next date
@@ -88,20 +89,10 @@ def group_valid_files(base_path: Path, files: Iterable[Path], n_days: int) -> Li
             out_files.append(FileMapping(dates[i], fls))
     return out_files
 
-def adapt_file_list(processed: Path, default_glob: str, n_days: int) -> List[FileMapping]:
+def locate_date_source(processed: Path, default_glob: str, n_days: int) -> List[FileMapping]:
 
     if ((jobidx := os.environ.get("LSB_JOBINDEX")) is None or jobidx == '0'):
-        return group_valid_files(processed, processed.glob(default_glob), n_days=n_days)
+        year_files = processed.glob(default_glob)
     else:
-        jobidx_int = int(jobidx)
-        year_files = list(processed.glob(f"{jobidx}*.nc"))
-        first_date = date(year=jobidx_int, month=1, day=1)
-        last_date = date(year=jobidx_int, month=12, day=31)
-        for i in range(1, n_days + 1):
-            date_before = (first_date - timedelta(days=i)).strftime("%Y_%m_%d")
-            date_after = (last_date + timedelta(days=i)).strftime("%Y_%m_%d")
-            year_files.extend([
-                processed / Path(f"{date_before}.nc"),
-                processed / Path(f"{date_after}.nc")
-            ])
-        return group_valid_files(processed, year_files, n_days=n_days)
+        year_files = processed.glob(f"{jobidx}*.nc")
+    return group_valid_files(processed, year_files, n_days=n_days)
