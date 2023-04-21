@@ -8,11 +8,11 @@ from src import Timer, config
 from src.landmask import subset_landmask, find_masking_attributes
 
 
-def grid(grid_arguments: ConstructArguments, file_mappings: List[FileMapping], output_format: str, multiprocess: bool = False):
+def grid(grid_arguments: ConstructArguments, file_mappings: List[FileMapping], output_format: str, multiprocess: bool = False, overwrite_grids: bool = False):
     for file_mapping in file_mappings:
         # Check if grid has already been processed
         grid_path = Path(output_format.format(date=file_mapping.computation_date_str))
-        if grid_path.exists():
+        if grid_path.exists() and overwrite_grids:
             continue
 
         # Add filemapping to arguments
@@ -63,7 +63,7 @@ def main():
 
     # Construct grids
     timer = Timer("Gridding timer")
-    grid(grid_arguments, file_mappings, output_grid_path_format, general.multiprocessing)
+    grid(grid_arguments, file_mappings, output_grid_path_format, general.multiprocessing, general.overwrite_grids)
     timer.Stop()
 
 if __name__ == "__main__":
