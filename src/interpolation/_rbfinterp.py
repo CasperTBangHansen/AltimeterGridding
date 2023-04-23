@@ -5,11 +5,9 @@ from itertools import combinations_with_replacement
 
 import numpy as np
 from numpy.linalg import LinAlgError
-from scipy.spatial import KDTree
 from sklearn.neighbors import BallTree
 from scipy.special import comb
 from scipy.linalg.lapack import dgesv  # type: ignore[attr-defined]
-from haversine import haversine_vector
 
 from ._rbfinterp_pythran import (_build_system,
                                  _build_evaluation_coefficients,
@@ -545,6 +543,7 @@ class RBFInterpolator:
 
             # Interpolate data
             sub_out = np.zeros((x.shape[0], self.d.shape[1]), dtype=float)
+
             for xidx, yidx in enumerate(yindices):
                 # `yidx` are the indices of the observations in this
                 # neighborhood. `xidx` are the indices of the evaluation points
