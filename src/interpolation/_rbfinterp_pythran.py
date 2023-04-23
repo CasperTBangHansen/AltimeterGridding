@@ -191,8 +191,7 @@ def _build_system(y, d, smoothing, kernel, epsilon, powers):
 #                          int[:, :],
 #                          float[:],
 #                          float[:])
-def _build_evaluation_coefficients(x, y, kernel, epsilon, powers,
-                                   shift, scale):
+def _build_evaluation_coefficients(x, y, kernel, epsilon, powers, shift, scale):
     """Construct the coefficients needed to evaluate
     the RBF.
 

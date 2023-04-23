@@ -1,5 +1,6 @@
 from typing import Tuple, List
 import numpy as np
+from numpy.linalg import LinAlgError
 import numpy.typing as npt
 import xarray as xr
 from pathlib import Path
@@ -95,13 +96,6 @@ def grid_inter(
         interpolationParameters: config.InterpolationParameters,
     ) -> Tuple[ExitCode, npt.NDArray[np.float64] | None]:
     """Perform grid interpolation"""
-   
-    # Wrap coordinates
-    wrapped_negative = block_grid[(block_grid[:,0] > abs(interpolationParameters.start_wrap))]
-    wrapped_negative[:,0] -= 360
-    wrapped_positive = block_grid[(block_grid[:,0] < -abs(interpolationParameters.start_wrap))]
-    wrapped_positive[:,0] += 360
-    block_grid = np.vstack([block_grid, wrapped_positive, wrapped_negative])
 
     # Split data
     block_mean = block_grid[:,3:] # [lon, lat, time]
@@ -120,7 +114,7 @@ def grid_inter(
             distance_to_time_scaling=interpolationParameters.distance_to_time_scaling
         )
         grid = interpolator(interp_coords)
-    except:
+    except LinAlgError:
         return ExitCode.FAILURE, None
     return ExitCode.SUCCESS, grid
 

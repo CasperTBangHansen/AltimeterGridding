@@ -6,6 +6,7 @@ from itertools import combinations_with_replacement
 import numpy as np
 from numpy.linalg import LinAlgError
 from scipy.spatial import KDTree
+from sklearn.neighbors import BallTree
 from scipy.special import comb
 from scipy.linalg.lapack import dgesv  # type: ignore[attr-defined]
 from haversine import haversine_vector
@@ -157,8 +158,10 @@ class RBFInterpolator:
     min_points : int, optional
         Minimum amount of points within max_distance for the interpolation point
         to be valid,
-    max_distance : int, optional
+    max_distance: float
         Maximum distance from grid point to interpolation point in km.
+    earth_radius: float, optional
+        Radius of earth in km. Default is 6371km
     smoothing : float or (P,) array_like, optional
         Smoothing parameter. The interpolant perfectly fits the data when this
         is set to 0. For large values, the interpolant approaches a least
@@ -303,9 +306,10 @@ class RBFInterpolator:
                  lon_column,
                  lat_column,
                  distance_to_time_scaling,
+                 max_distance,
+                 earth_radius=6371.0,
                  neighbors=None,
                  min_points=None,
-                 max_distance=None,
                  smoothing=0.0,
                  kernel="thin_plate_spline",
                  epsilon=None,
@@ -409,12 +413,13 @@ class RBFInterpolator:
             self._coeffs = coeffs
 
         else:
-            self._tree = KDTree(y[:, [lat_column, lon_column]])
+            self._tree = BallTree(y[:, [lat_column, lon_column]] * np.pi / 180, metric = 'haversine')
 
         self.y = y
         self.d = d
         self.min_points = min_points
         self.max_distance = max_distance
+        self.earth_radius = earth_radius
         self.d_shape = d_shape
         self.d_dtype = d_dtype
         self.neighbors = neighbors
@@ -568,70 +573,68 @@ class RBFInterpolator:
         out = out.reshape((nx, ) + self.d_shape)
         return out
 
-    def feature_scale(self, x, yindices, latlon_distances):
+    def feature_scale(self, x, yindices, distance_km):
         # Feature scale around 0
         x[:, -1] = 0
-        # Get min max feature values (a,b)
+
+        # Maximum distance in distance_km
+        max_dist = max([dist.max() for dist in distance_km])
+
+        # Get min max feature values (a, b) (Distances)
         min_dist = 0
-        max_dist = self.distance_to_time_scaling * latlon_distances.max()
+        max_dist_scaled = self.distance_to_time_scaling * max_dist
 
-        # Get min max values
-        y_valid = self.y[yindices]
-        y_min = y_valid[:, :, -1].min(axis=1).reshape(-1, 1)
-        y_max = y_valid[:, :, -1].max(axis=1).reshape(-1, 1)
-        y_diff = y_max - y_min
+        # Map y indices to y values
+        y_valids = [self.y[y_idx] for y_idx in yindices]
+        
+        for i, y_valid in enumerate(y_valids):
+            # Compute min max time values
+            y_min = y_valid[:, -1].min()
+            y_diff = y_valid[:, -1].max() - y_min
 
-        # Allocate
-        y_new = np.zeros(y_valid.shape, dtype=np.float64)
-        # Prevent division by zero
-        non_zero = (y_diff != 0).flatten()
-
-        # Compute minmax feature scaling
-        y_new[non_zero, :, -1] = (
-            (
-                (y_valid[non_zero, :, -1] - y_min[non_zero])
-                * (max_dist - min_dist)
-            )
-            / y_diff[non_zero]
-        )
+            # Prevent division by zero
+            if y_diff != 0:
+                # Compute minmax feature scaling
+                y_valids[i][:, -1] = (
+                    (
+                        (y_valid[:, -1] - y_min)
+                        * (max_dist_scaled - min_dist)
+                    )
+                    / y_diff
+                )
 
         # Add a to feature scaled
-        y_new[:, :, -1] = min_dist + y_new[:, :, -1]
-        y_new[:, :, :-1] = y_valid[:, :, :-1]
-        return y_new
+        return [y + min_dist for y in y_valids]
 
     def setup_coordinates(self, x):
         """Find valid x_coordinates and y_indices"""
         # Get the indices of the k nearest observation points to each
         # evaluation point.
         x_latlon = x[:, self.latlon_columns]
-        distances, yindices = self._tree.query(x_latlon, self.neighbors)
+        yindices, distances_scaled = self._tree.query_radius(
+            x_latlon * np.pi / 180,
+            r = self.max_distance/self.earth_radius,
+            return_distance = True,
+        )
+        
+        # Convert from 0-1 distances to km
+        distances_km = distances_scaled * self.earth_radius
+
         if self.neighbors == 1:
             # `KDTree` squeezes the output when neighbors=1.
             yindices = yindices[:, None]
-            distances = distances[:, None]
+            distances_km = distances_km[:, None]
 
         min_points = 0 if self.min_points is None else self.min_points
 
         # Remove grid points for x and y if x is too far away from y.
-        valid_yindices = np.zeros(yindices.shape[0], dtype=np.bool_)
-        y_latlon = self.y[:, self.latlon_columns]
-        y_latlon[y_latlon[:,1] < -180, 1] += 360
-        y_latlon[y_latlon[:,1] > 180, 1] -= 360
-        for i, y_i in enumerate(yindices):
-            distance = haversine_vector(
-                x_latlon[i],
-                y_latlon[y_i],
-                comb=True
-            )
-            if (distance < self.max_distance).sum() > min_points:
-                valid_yindices[i] = True
-        x = x[valid_yindices]
-        yindices = yindices[valid_yindices]
-        distances = distances[valid_yindices]
+        valid_grid_points = np.array([len(y) for y in yindices]) > min_points
+        x = x[valid_grid_points]
+        yindices = yindices[valid_grid_points]
+        distances_km = distances_km[valid_grid_points]
 
         # Feature scale
-        y_new = self.feature_scale(x, yindices, distances)
+        y_new = self.feature_scale(x, yindices, distances_km)
 
         # Feature scale
-        return x, y_new, yindices, valid_yindices
+        return x, y_new, yindices, valid_grid_points
