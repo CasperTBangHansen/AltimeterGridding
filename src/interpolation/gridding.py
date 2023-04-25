@@ -47,7 +47,7 @@ def process_grid(
     all_data = import_data(processed_file.files)
 
     # Get time to interpolate to
-    interp_time = make_interp_time(all_data)
+    interp_time = make_interp_time(processed_file.computation_date)
 
     separated_grids = []
     for data in (all_data[g_var] for g_var in gridParameters.interpolation_groups):

@@ -3,15 +3,12 @@ from typing import Tuple, List
 import numpy as np
 import numpy.typing as npt
 import xarray as xr
-from datetime import timedelta
+import datetime
 
-def make_interp_time(data: xr.Dataset) -> int:
+def make_interp_time(interpolation_date: datetime.date) -> int:
     """Return interpolation time as integer value"""
-    times = data["time"].values # type: ignore
-    mid_date = times.astype("datetime64[D]")[int(len(times)/2)].astype(str)
-    mid_time = f"{mid_date}T12:00:00.000000000"
-    return int(np.datetime64(mid_time)) # type: ignore
-
+    interpolation_time = datetime.datetime.combine(interpolation_date, datetime.time(hour=12))
+    return np.datetime64(interpolation_time).astype(np.int64).item() * 1000
 
 def make_grid(x_deg: float, y_deg: float, x_boundary: Tuple[float, float], y_boundary: Tuple[float, float]) -> List[npt.NDArray[np.float64]]:
     """Creates a grid of x, y"""
@@ -57,7 +54,7 @@ def block_mean(
     
     # Spatial and temporal resolution of block mean grid
     t_resolution = np.array(
-        [timedelta(hours=temporal_resolution).seconds * 1e9],
+        [datetime.timedelta(hours=temporal_resolution).seconds * 1e9],
         dtype=np.int64
     )
 
