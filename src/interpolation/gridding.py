@@ -114,7 +114,8 @@ def grid_inter(
             distance_to_time_scaling=interpolationParameters.distance_to_time_scaling
         )
         grid = interpolator(interp_coords)
-    except LinAlgError:
+    except LinAlgError as e:
+        print(e)
         return ExitCode.FAILURE, None
     return ExitCode.SUCCESS, grid
 

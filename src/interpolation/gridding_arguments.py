@@ -28,6 +28,10 @@ class ConstructArguments:
     output_grid_path_format: str
     _pos: int = field(default=0, init=False)
 
+    @property
+    def n_files(self) -> int:
+        return len(self._file_mappings)
+
     def add_file_mapping(self, file_mapping: FileMapping) -> None:
         self._file_mappings.append(file_mapping)
 

@@ -11,7 +11,7 @@
 ### -- one host per job
 #BSUB -R "span[hosts=1]"
 ### -- Use specific hardware
-#BSUB -R "select[model == XeonGold6626R]"
+#BSUB -R "select[model == XeonGold6226R]"
 ### -- set walltime limit: hh:mm -- 
 #BSUB -W 72:00 
 ### -- set the email address -- 

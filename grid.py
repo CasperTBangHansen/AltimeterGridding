@@ -20,13 +20,13 @@ def grid(grid_arguments: ConstructArguments, file_mappings: List[FileMapping], o
 
         # Process later if multiprocessing is enabled otherwise process
         if not multiprocess:
-            print(f"Processing {file_mapping.computation_date}, status = ", end='')
-            print(process_grid(*grid_arguments.current_argument()))
+            print(f"Processing {file_mapping.computation_date}, status = ", end='', flush=True)
+            print(process_grid(*grid_arguments.current_argument()), flush=True)
 
     # Execute commands using multiprocessing
     if multiprocess and grid_arguments:
         if (file := grid_arguments.first_file()) is not None:
-            print(f"Starting from {file.computation_date}")
+            print(f"Starting from {file.computation_date}. Found {grid_arguments.n_files} files", flush=True)
         with multiprocessing.Pool() as pool:
             _ = pool.starmap(process_grid, grid_arguments)
     

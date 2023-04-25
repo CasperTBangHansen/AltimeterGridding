@@ -1,18 +1,18 @@
 """Module for RBF interpolation."""
 import warnings
 from itertools import combinations_with_replacement
-
+from typing import Optional, List, Any, Tuple
 
 import numpy as np
+import numpy.typing as npt
 from numpy.linalg import LinAlgError
 from sklearn.neighbors import BallTree
 from scipy.special import comb
-from scipy.linalg.lapack import dgesv  # type: ignore[attr-defined]
+from scipy.linalg.lapack import dgesv
 
-from ._rbfinterp_pythran import (_build_system,
-                                 _build_evaluation_coefficients,
-                                 _polynomial_matrix)
+from ._rbfinterp_pythran import (_build_system, _build_evaluation_coefficients, _polynomial_matrix)
 
+float_like = npt.NDArray[np.floating[Any]]
 
 __all__ = ["RBFInterpolator"]
 
@@ -27,9 +27,8 @@ _AVAILABLE = {
     "inverse_multiquadric",
     "inverse_quadratic",
     "gaussian",
-    "cosine",
     "haversine"
-    }
+}
 
 
 # The shape parameter does not need to be specified when using these RBFs.
@@ -52,7 +51,7 @@ _NAME_TO_MIN_DEGREE = {
 }
 
 
-def _monomial_powers(ndim, degree):
+def _monomial_powers(ndim: int, degree: int):
     """Return the powers for each monomial in a polynomial.
 
     Parameters
@@ -69,7 +68,7 @@ def _monomial_powers(ndim, degree):
         monomial.
 
     """
-    nmonos = comb(degree + ndim, ndim, exact=True)
+    nmonos: int = comb(degree + ndim, ndim, exact=True) # type: ignore
     out = np.zeros((nmonos, ndim), dtype=int)
     count = 0
     for deg in range(degree + 1):
@@ -300,18 +299,20 @@ class RBFInterpolator:
 
     """
 
-    def __init__(self, y, d,
-                 lon_column,
-                 lat_column,
-                 distance_to_time_scaling,
-                 max_distance,
-                 earth_radius=6371.0,
-                 neighbors=None,
-                 min_points=None,
-                 smoothing=0.0,
-                 kernel="thin_plate_spline",
-                 epsilon=None,
-                 degree=None):
+    def __init__(self,
+        y: npt.ArrayLike,
+        d: npt.ArrayLike,
+        lon_column: int,
+        lat_column: int,
+        distance_to_time_scaling: float,
+        max_distance: float,
+        earth_radius: float = 6371.0,
+        neighbors: Optional[int] = None,
+        min_points: Optional[int] = None,
+        smoothing: float | npt.ArrayLike = 0.0,
+        kernel: str = "thin_plate_spline",
+        epsilon: Optional[float] = None,
+        degree: Optional[int] = None):
         y = np.asarray(y, dtype=float, order="C")
         if y.ndim != 2:
             raise ValueError("`y` must be a 2-dimensional array.")
@@ -332,7 +333,7 @@ class RBFInterpolator:
         if d.shape[0] != ny:
             raise ValueError(
                 f"Expected the first axis of `d` to have length {ny}."
-                )
+            )
 
         d_shape = d.shape[1:]
         d = d.reshape((ny, -1))
@@ -349,7 +350,7 @@ class RBFInterpolator:
                 raise ValueError(
                     "Expected `smoothing` to be a scalar or have shape "
                     f"({ny},)."
-                    )
+                )
 
         kernel = kernel.lower()
         if kernel not in _AVAILABLE:
@@ -362,7 +363,7 @@ class RBFInterpolator:
                 raise ValueError(
                     "`epsilon` must be specified if `kernel` is not one of "
                     f"{_SCALE_INVARIANT}."
-                    )
+                )
         else:
             epsilon = float(epsilon)
 
@@ -380,7 +381,7 @@ class RBFInterpolator:
                     "solvable, and the smoothing parameter may have an "
                     "unintuitive effect.",
                     UserWarning
-                    )
+                )
 
         if neighbors is None:
             nobs = ny
@@ -398,12 +399,12 @@ class RBFInterpolator:
             raise ValueError(
                 f"At least {powers.shape[0]} data points are required when "
                 f"`degree` is {degree} and the number of dimensions is {ndim}."
-                )
+            )
 
         if neighbors is None:
             shift, scale, coeffs = _build_and_solve_system(
                 y, d, smoothing, kernel, epsilon, powers
-                )
+            )
 
             # Make these attributes private since they do not always exist.
             self._shift = shift
@@ -430,12 +431,12 @@ class RBFInterpolator:
 
     def _chunk_evaluator(
             self,
-            x,
-            y,
-            shift,
-            scale,
-            coeffs,
-            memory_budget=1000000
+            x: float_like,
+            y: float_like,
+            shift: float_like,
+            scale: float_like,
+            coeffs: float_like,
+            memory_budget: int = 1000000
     ):
         """
         Evaluate the interpolation while controlling memory consumption.
@@ -495,7 +496,7 @@ class RBFInterpolator:
             out = np.dot(vec, coeffs)
         return out
 
-    def __call__(self, x):
+    def __call__(self, x: float_like) -> float_like:
         """Evaluate the interpolant at `x`.
 
         Parameters
@@ -572,7 +573,7 @@ class RBFInterpolator:
         out = out.reshape((nx, ) + self.d_shape)
         return out
 
-    def feature_scale(self, x, yindices, distance_km):
+    def feature_scale(self, x: float_like, yindices: npt.NDArray[Any], distance_km: npt.NDArray[Any]) -> List[float_like]:
         # Feature scale around 0
         x[:, -1] = 0
 
@@ -584,7 +585,7 @@ class RBFInterpolator:
         max_dist_scaled = self.distance_to_time_scaling * max_dist
 
         # Map y indices to y values
-        y_valids = [self.y[y_idx] for y_idx in yindices]
+        y_valids: List[npt.NDArray[np.floating[Any]]] = [self.y[y_idx] for y_idx in yindices]
         
         for i, y_valid in enumerate(y_valids):
             # Compute min max time values
@@ -605,24 +606,48 @@ class RBFInterpolator:
         # Add a to feature scaled
         return [y + min_dist for y in y_valids]
 
-    def setup_coordinates(self, x):
+    @staticmethod
+    def random_sample(distances_scaled: npt.NDArray[Any], n_samples: int) -> List[npt.NDArray[np.int64]]:
+        """Randomly samples n_samples from distances_scaled if atleast n_samples are present.
+        Otherwise the entire vector is keept.
+        The output the the sampled indexes of each numpy array in distances_scaled.
+        distances_scaled have to be between 0 and 1 for all values.
+        """
+        sampled_values = []
+        for distance_scaled in distances_scaled:
+            if (n_points := len(distance_scaled)) > n_samples:
+                indexes = np.arange(n_points)
+                total_dist = (1 - distance_scaled).sum()
+                probability = (1 - distance_scaled)/total_dist
+                samples = np.random.choice(indexes, n_samples, replace=False, p=probability)
+                sampled_values.append(np.in1d(indexes, samples, assume_unique=True))
+            else:
+                sampled_values.append(np.ones(n_points, dtype=bool))
+        return sampled_values
+
+
+    def setup_coordinates(self, x: float_like) -> Tuple[
+        float_like, List[float_like], npt.NDArray[Any], npt.NDArray[np.bool_]
+    ]:
         """Find valid x_coordinates and y_indices"""
         # Get the indices of the k nearest observation points to each
         # evaluation point.
         x_latlon = x[:, self.latlon_columns]
+        yindices: npt.NDArray[Any]
+        distances_scaled: npt.NDArray[Any]
         yindices, distances_scaled = self._tree.query_radius(
             x_latlon * np.pi / 180,
             r = self.max_distance/self.earth_radius,
             return_distance = True,
         )
         
-        # Convert from 0-1 distances to km
-        distances_km = distances_scaled * self.earth_radius
-
         if self.neighbors == 1:
             # `KDTree` squeezes the output when neighbors=1.
             yindices = yindices[:, None]
-            distances_km = distances_km[:, None]
+            distances_scaled = distances_scaled[:, None]          
+        
+        # Convert from 0-1 distances to km
+        distances_km = distances_scaled * self.earth_radius
 
         min_points = 0 if self.min_points is None else self.min_points
 
@@ -631,6 +656,18 @@ class RBFInterpolator:
         x = x[valid_grid_points]
         yindices = yindices[valid_grid_points]
         distances_km = distances_km[valid_grid_points]
+        distances_scaled = distances_scaled[valid_grid_points]
+
+        # Sample from tree
+        if self.neighbors is not None:
+            sampled = self.random_sample(distances_scaled, self.neighbors)
+            new_yindices = []
+            new_distances_scaled = []
+            for sample, yindice, distance_scaled in zip(sampled, yindices, distances_scaled):
+                new_yindices.append(yindice[sample])
+                new_distances_scaled.append(distance_scaled[sample])
+            yindice = np.array(new_yindices, dtype='object')
+            distances_scaled = np.array(new_distances_scaled, dtype='object')
 
         # Feature scale
         y_new = self.feature_scale(x, yindices, distances_km)
