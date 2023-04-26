@@ -639,6 +639,7 @@ class RBFInterpolator:
             x_latlon * np.pi / 180,
             r = self.max_distance/self.earth_radius,
             return_distance = True,
+            sort_results = True,
         )
         
         if self.neighbors == 1:
@@ -655,15 +656,20 @@ class RBFInterpolator:
         distances_scaled = distances_scaled[valid_grid_points]
 
         # Sample from tree
+        # if self.neighbors is not None:
+        #     sampled = self.random_sample(distances_scaled, self.neighbors)
+        #     new_yindices = []
+        #     new_distances_scaled = []
+        #     for sample, yindice, distance_scaled in zip(sampled, yindices, distances_scaled):
+        #         new_yindices.append(yindice[sample])
+        #         new_distances_scaled.append(distance_scaled[sample])
+        #     yindices = np.array(new_yindices, dtype='object')
+        #     distances_scaled = np.array(new_distances_scaled, dtype='object')
+
+        # Based on distance
         if self.neighbors is not None:
-            sampled = self.random_sample(distances_scaled, self.neighbors)
-            new_yindices = []
-            new_distances_scaled = []
-            for sample, yindice, distance_scaled in zip(sampled, yindices, distances_scaled):
-                new_yindices.append(yindice[sample])
-                new_distances_scaled.append(distance_scaled[sample])
-            yindices = np.array(new_yindices, dtype='object')
-            distances_scaled = np.array(new_distances_scaled, dtype='object')
+            yindices = np.array([y_idx[:self.neighbors] for y_idx in yindices], dtype='object')
+            distances_scaled = np.array([dist[:self.neighbors ] for dist in distances_scaled], dtype='object')
 
         # Convert from 0-1 distances to km
         distances_km = distances_scaled * self.earth_radius
