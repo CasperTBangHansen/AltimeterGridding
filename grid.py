@@ -2,6 +2,7 @@ import multiprocessing
 from typing import List
 from pathlib import Path
 import xarray as xr
+import os
 from src.interpolation import make_grid, process_grid, ConstructArguments
 from src.fileHandler import locate_date_source, FileMapping
 from src import Timer, config
@@ -27,7 +28,12 @@ def grid(grid_arguments: ConstructArguments, file_mappings: List[FileMapping], o
     if multiprocess and grid_arguments:
         if (file := grid_arguments.first_file()) is not None:
             print(f"Starting from {file.computation_date}. Found {grid_arguments.n_files} files", flush=True)
-        with multiprocessing.Pool() as pool:
+        if hasattr(os, 'sched_getaffinity'):
+            n_processes = len(os.sched_getaffinity(0)) # type: ignore
+        else:
+            n_processes = None
+        with multiprocessing.Pool(n_processes) as pool:
+            print("Processing using ")
             _ = pool.starmap(process_grid, grid_arguments)
     
 

@@ -646,16 +646,12 @@ class RBFInterpolator:
             yindices = yindices[:, None]
             distances_scaled = distances_scaled[:, None]          
         
-        # Convert from 0-1 distances to km
-        distances_km = distances_scaled * self.earth_radius
-
         min_points = 0 if self.min_points is None else self.min_points
 
         # Remove grid points for x and y if x is too far away from y.
         valid_grid_points = np.array([len(y) for y in yindices]) > min_points
         x = x[valid_grid_points]
         yindices = yindices[valid_grid_points]
-        distances_km = distances_km[valid_grid_points]
         distances_scaled = distances_scaled[valid_grid_points]
 
         # Sample from tree
@@ -666,8 +662,11 @@ class RBFInterpolator:
             for sample, yindice, distance_scaled in zip(sampled, yindices, distances_scaled):
                 new_yindices.append(yindice[sample])
                 new_distances_scaled.append(distance_scaled[sample])
-            yindice = np.array(new_yindices, dtype='object')
+            yindices = np.array(new_yindices, dtype='object')
             distances_scaled = np.array(new_distances_scaled, dtype='object')
+
+        # Convert from 0-1 distances to km
+        distances_km = distances_scaled * self.earth_radius
 
         # Feature scale
         y_new = self.feature_scale(x, yindices, distances_km)
