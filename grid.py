@@ -33,7 +33,7 @@ def grid(grid_arguments: ConstructArguments, file_mappings: List[FileMapping], o
         else:
             n_processes = None
         with multiprocessing.Pool(n_processes) as pool:
-            print("Processing using ")
+            print(f"Processing using {n_processes}", flush=True)
             _ = pool.starmap(process_grid, grid_arguments)
     
 
