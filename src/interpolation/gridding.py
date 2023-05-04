@@ -49,7 +49,7 @@ def process_grid(
     # Get time to interpolate to
     interp_time = make_interp_time(processed_file.computation_date)
 
-    separated_grids = []
+    separated_grids: List[npt.NDArray[np.float64]] = []
     groups = (all_data[g_var] for g_var in gridParameters.interpolation_groups)
     for data, time_distance in zip(groups, interpolationParameters.distance_to_time_scaling):
         
@@ -82,7 +82,14 @@ def process_grid(
     combined_grids = np.concatenate(separated_grids, axis=2)
     
     # Convert to netcdf for the correct attributes
-    final_grid = store_attributes(combined_grids, all_data, interp_lons, interp_lats, interp_time)
+    final_grid = store_attributes(
+        combined_grids,
+        all_data,
+        interp_lons,
+        interp_lats,
+        interp_time,
+        [var for group in gridParameters.interpolation_groups for var in group]
+    )
     
     # Export file
     grid_path = Path(output_path_format.format(date=processed_file.computation_date_str))
@@ -126,17 +133,17 @@ def store_attributes(
         raw_data: xr.Dataset,
         interp_lons: npt.NDArray[np.float64],
         interp_lats: npt.NDArray[np.float64],
-        interp_time: int
+        interp_time: int,
+        data_vars: List[str]
     ) -> xr.Dataset:
     """Transfer attributes from data netcdf to grid netcdf"""
 
     # Convert numpy array to xr.Dataset
     if isinstance(masked_grid, np.ndarray):
-        data_vars = list(raw_data.data_vars)
         layer_ids = range(masked_grid.shape[-1])
         masked_grid = xr.Dataset(
             data_vars = {
-                name:(['lats','lons'], masked_grid[:,:,i]) for name, i in zip(data_vars,layer_ids)
+                name:(['lats','lons'], masked_grid[:,:,i]) for name, i in zip(data_vars, layer_ids)
             },
             coords = dict(
                 Longitude = (['lats','lons'], interp_lons),
