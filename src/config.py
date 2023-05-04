@@ -31,16 +31,15 @@ class Paths(pydantic.BaseModel):
     raw_data_glob: str
 
 class InterpolationParameters(pydantic.BaseModel):
-    distance_to_time_scaling: float
+    distance_to_time_scaling: List[float]
     n_neighbors : int
     kernel: str
     max_distance_km: float
     min_points: int
-    start_wrap: float
 
     @pydantic.validator("distance_to_time_scaling", pre=True)
-    def parse_distance_to_time_scaling(cls, value: str) -> float:
-        return to_float(value)
+    def parse_distance_to_time_scaling(cls, value: str) -> List[float]:
+        return json.loads(value)
 
 class GridParameters(pydantic.BaseModel):
     grid_resolution: float
@@ -65,6 +64,6 @@ def parse_config(path: Path) -> Tuple[General, GridParameters, Paths, Interpolat
     gridParameters = GridParameters(**config["GridParameters"]) # type: ignore
     paths = Paths(**config["Paths"]) # type: ignore
     interpolationParameters = InterpolationParameters(**config["InterpolationParameters"]) # type: ignore
-    interpolationParameters.distance_to_time_scaling /= general.number_of_days
+    interpolationParameters.distance_to_time_scaling = [d/general.number_of_days for d in interpolationParameters.distance_to_time_scaling]
 
     return general, gridParameters, paths, interpolationParameters

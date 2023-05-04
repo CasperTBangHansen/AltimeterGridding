@@ -50,7 +50,8 @@ def process_grid(
     interp_time = make_interp_time(processed_file.computation_date)
 
     separated_grids = []
-    for data in (all_data[g_var] for g_var in gridParameters.interpolation_groups):
+    groups = (all_data[g_var] for g_var in gridParameters.interpolation_groups)
+    for data, time_distance in zip(groups, interpolationParameters.distance_to_time_scaling):
         
         # Block mean the data
         block_grid = block_mean(
@@ -65,7 +66,7 @@ def process_grid(
         grid, interp_coords, ocean_mask = setup_gridding(interp_lons, interp_lats, interp_time, land_mask, block_grid.shape[1]-3)
         
         # Grid the data
-        status, output = grid_inter(interp_coords, block_grid, interpolationParameters)
+        status, output = grid_inter(interp_coords, block_grid, interpolationParameters, time_distance)
         if status != ExitCode.SUCCESS:
             return status
     
@@ -94,6 +95,7 @@ def grid_inter(
         interp_coords: npt.NDArray[np.float64],
         block_grid: npt.NDArray[np.float64],
         interpolationParameters: config.InterpolationParameters,
+        time_distance: float,
     ) -> Tuple[ExitCode, npt.NDArray[np.float64] | None]:
     """Perform grid interpolation"""
 
@@ -111,7 +113,7 @@ def grid_inter(
             kernel=interpolationParameters.kernel,
             max_distance=interpolationParameters.max_distance_km,
             min_points=interpolationParameters.min_points,
-            distance_to_time_scaling=interpolationParameters.distance_to_time_scaling
+            distance_to_time_scaling=time_distance
         )
         grid = interpolator(interp_coords)
     except LinAlgError as e:
