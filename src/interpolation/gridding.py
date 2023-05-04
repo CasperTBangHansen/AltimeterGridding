@@ -40,7 +40,6 @@ def process_grid(
         output_path_format: str
     ) -> ExitCode:
     """Full grid processing pipeline"""
-    interp_time = None
     status = ExitCode.FAILURE
 
     # Load data
@@ -75,8 +74,6 @@ def process_grid(
 
         # Save each grid into a list to be concatenated
         separated_grids.append(grid)
-    if interp_time is None:
-        return ExitCode.FAILURE
 
     # Concatenate
     combined_grids = np.concatenate(separated_grids, axis=2)
