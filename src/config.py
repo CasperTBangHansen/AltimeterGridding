@@ -11,7 +11,7 @@ def is_float(element: str) -> bool:
 
 def to_float(element: str) -> float:
     """ Converts string to float. Also passes fractions"""
-    if is_float(element):
+    if is_float(element) or element.isnumeric():
         return float(element)
     if "/" in element:
         frac = element.split('/')
