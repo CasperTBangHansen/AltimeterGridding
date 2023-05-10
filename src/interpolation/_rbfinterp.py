@@ -553,6 +553,7 @@ class RBFInterpolator:
                 ynbr = y_new[xidx]
                 dnbr = self.d[yidx]
                 snbr = self.smoothing[yidx]
+
                 shift, scale, coeffs = _build_and_solve_system(
                     ynbr,
                     dnbr,
@@ -561,6 +562,7 @@ class RBFInterpolator:
                     self.epsilon,
                     self.powers,
                 )
+
                 sub_out[xidx] = self._chunk_evaluator(
                     xnbr,
                     ynbr,
@@ -568,6 +570,7 @@ class RBFInterpolator:
                     scale,
                     coeffs,
                     memory_budget=memory_budget)
+
             out[valid_yindices] = sub_out
         out = out.view(self.d_dtype)
         out = out.reshape((nx, ) + self.d_shape)

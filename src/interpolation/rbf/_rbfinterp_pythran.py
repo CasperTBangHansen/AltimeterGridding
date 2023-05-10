@@ -47,13 +47,13 @@ def haversine_distance(lat1, lat2, lon1, lon2):
     )
 
 def haversine(x, y):
-    lon1, lat1 = x[0] * np.pi/180, x[1] * np.pi/180
-    lon2, lat2 = y[0] * np.pi/180, y[1] * np.pi/180
+    lon1,lat1 = x[0] * np.pi/180, x[1] * np.pi/180
+    lon2,lat2 = y[0] * np.pi/180, y[1] * np.pi/180
     delta_t = x[2]-y[2]
     return -np.sqrt(
         np.square(.1 * haversine_distance(lat1, lat2, lon1, lon2))
         + np.square(0.5625 * delta_t)
-    )
+    ) # 0.1 spatial, 0.5625 temporal
 
 NAME_TO_FUNC = {
    "linear": linear,

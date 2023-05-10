@@ -114,11 +114,21 @@ def grid_inter(
             lat_column=1,
             lon_column=0,
             neighbors=interpolationParameters.n_neighbors,
-            kernel=interpolationParameters.kernel,
             max_distance=interpolationParameters.max_distance_km,
             min_points=interpolationParameters.min_points,
             distance_to_time_scaling=time_distance
         )
+        # interpolator = RBFInterpolator(
+        #     coords,
+        #     block_mean,
+        #     lat_column=1,
+        #     lon_column=0,
+        #     neighbors=interpolationParameters.n_neighbors,
+        #     kernel=interpolationParameters.kernel,
+        #     max_distance=interpolationParameters.max_distance_km,
+        #     min_points=interpolationParameters.min_points,
+        #     distance_to_time_scaling=time_distance
+        # )
         grid = interpolator(interp_coords)
     except LinAlgError as e:
         print(e)

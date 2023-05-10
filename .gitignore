@@ -141,3 +141,4 @@ gmt.history
 src/RBF_new/*
 config.ini
 Logs/*
+*.npy
