@@ -54,8 +54,8 @@ def process_grid(
         
         # Block mean the data
         block_grid = block_mean(
-            (-180, 180),
-            (-90, 90),
+            gridParameters.longitude_boundary,
+            gridParameters.latitude_boundary,
             data,
             gridParameters.blockmean_temporal_resolution,
             gridParameters.blockmean_spatial_resolution

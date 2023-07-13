@@ -46,14 +46,28 @@ class GridParameters(pydantic.BaseModel):
     blockmean_spatial_resolution: float
     blockmean_temporal_resolution: int
     interpolation_groups: List[List[str]]
+    latitude_boundary: Tuple[float,float]
+    longitude_boundary: Tuple[float,float]
 
     @pydantic.validator("blockmean_spatial_resolution", pre=True)
     def parse_blockmean_spatial_resolution(cls, value: str) -> float:
         return to_float(value)
 
+    @pydantic.validator("grid_resolution", pre=True)
+    def parse_grid_resolution(cls, value: str) -> float:
+        return to_float(value)
+
     @pydantic.validator("interpolation_groups", pre=True)
     def parse_interpolation_groups(cls, value: str) -> List[List[str]]:
         return json.loads(value)
+
+    @pydantic.validator("latitude_boundary", pre=True)
+    def parse_latitude_boundary(cls, value: str) -> Tuple[float, float]:
+        return tuple(json.loads(value))
+    
+    @pydantic.validator("longitude_boundary", pre=True)
+    def parse_longitude_boundary(cls, value: str) -> Tuple[float, float]:
+        return tuple(json.loads(value))
 
 def parse_config(path: Path) -> Tuple[General, GridParameters, Paths, InterpolationParameters]:
     config = configparser.ConfigParser()

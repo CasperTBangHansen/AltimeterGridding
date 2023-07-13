@@ -47,14 +47,14 @@ def main():
     # Ocean mask
     land_mask_file = find_masking_attributes(gridParameters.grid_resolution, Path("ocean_mask"))
     land_mask = xr.open_dataset(land_mask_file, engine="netcdf4").load()
-    land_mask = subset_landmask(land_mask, (-180, 180), (-90, 90))
+    land_mask = subset_landmask(land_mask, gridParameters.longitude_boundary, gridParameters.latitude_boundary)
     
     # Construct interpolation coordinates
     interp_lons, interp_lats = make_grid(
         gridParameters.grid_resolution,
         gridParameters.grid_resolution,
-        (-180, 180),
-        (-90, 90)
+        gridParameters.longitude_boundary,
+        gridParameters.latitude_boundary
     )
 
     # Get all groups of files
