@@ -668,8 +668,17 @@ class RBFInterpolator:
 
         # Based on distance
         if self.neighbors is not None:
-            yindices = np.array([y_idx[:self.neighbors] for y_idx in yindices], dtype='object')
-            distances_scaled = np.array([dist[:self.neighbors ] for dist in distances_scaled], dtype='object')
+            yindices_list = [y_idx[:self.neighbors] for y_idx in yindices]
+            first_len = len(yindices_list[0])
+            if all((len(yindice) == first_len for yindice in yindices_list)):
+                dtype = np.int64
+                d_dtype = np.float64
+            else:
+                dtype = 'object'
+                d_dtype = 'object'
+            yindices = np.array(yindices_list, dtype=dtype)
+
+            distances_scaled = np.array([dist[:self.neighbors] for dist in distances_scaled], dtype=d_dtype)
 
         # Convert from 0-1 distances to km
         distances_km = distances_scaled * self.earth_radius

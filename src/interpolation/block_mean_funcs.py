@@ -12,11 +12,11 @@ def make_interp_time(interpolation_date: datetime.date) -> int:
 
 def make_grid(x_deg: float, y_deg: float, x_boundary: Tuple[float, float], y_boundary: Tuple[float, float]) -> List[npt.NDArray[np.float64]]:
     """Creates a grid of x, y"""
-    x_start = sign_add(x_boundary[0], x_deg/2)
-    x_end = sign_add(x_boundary[1], -x_deg/2)
+    x_start = x_boundary[0] + x_deg/2
+    x_end = x_boundary[1] + x_deg/2
     x = np.arange(x_start, x_end, x_deg)
-    y_start = sign_add(y_boundary[0], y_deg/2)
-    y_end = sign_add(y_boundary[1], -y_deg/2)
+    y_start = y_boundary[0] + y_deg/2
+    y_end = y_boundary[1] + y_deg/2
     y = np.arange(y_start, y_end, y_deg)
     return np.meshgrid(x, y)
 
@@ -79,10 +79,10 @@ def block_mean(
 
 def setup_spatial_grid_bounds(x_boundary: Tuple[float, float], y_boundary: Tuple[float, float], resolution: float) -> Tuple[float, float, int, int]:
     """Set the spatial boundaries for block mean grid"""
-    x_start = sign_add(x_boundary[0], resolution/2)
-    x_end = sign_add(x_boundary[1], resolution/2)
-    y_start = sign_add(y_boundary[0], resolution/2)
-    y_end = sign_add(y_boundary[1], resolution/2)
+    x_start = x_boundary[0] + resolution/2
+    y_start = y_boundary[0] + resolution/2
+    x_end = x_boundary[1] - resolution/2
+    y_end = y_boundary[1] - resolution/2
     x_size = int((x_end-x_start)//resolution)
     y_size = int((y_end-y_start)//resolution)
     return x_start, y_start, x_size, y_size
