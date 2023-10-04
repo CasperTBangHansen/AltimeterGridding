@@ -110,9 +110,14 @@ def load_crossover(crossover_sats: Tuple[str,...], crossover_path: Path, satelli
             crossover = correct_crossovers(crossover, satellite_indexses[-1], crossover_corr, cor_satellite_indexs, datavar)
             
             # Only select crossovers which are later than the last reference satellites crossovers
-            crossover = crossover.isel(
-                xover = crossover.time.isel(leg=satellite_indexses[-1].satellite) >= crossovers[-1].time.isel(xover=-1, leg=satellite_indexses[-2].satellite)
-            )
+            # new_time = crossover.time.isel(leg=satellite_indexses[-1].satellite)
+            # prev_time = crossovers[-1].time.isel(xover=-1, leg=satellite_indexses[-2].satellite)
+            # crossover = crossover.isel(xover = new_time >= prev_time)
+            
+            # Switch crossover to the new crossover whenever it begins
+            new_time = crossover.time.isel(xover=0, leg=satellite_indexses[-1].satellite)
+            prev_time = crossovers[-1].time.isel(leg=satellite_indexses[-2].satellite)
+            crossovers[-1] = crossovers[-1].isel(xover = new_time >= prev_time)
         crossovers.append(crossover)
     
     # Concat
