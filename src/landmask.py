@@ -20,6 +20,9 @@ def find_masking_attributes(resolution_deg: float, base_path: Path) -> str:
     if resolution_deg == 1:
         land_mask_file = Path("land_NaN_01d.grd")
         mask_name = "earth_mask_01d_p"
+    if resolution_deg == 1/2:
+        land_mask_file = Path("land_NaN_30m.grd")
+        mask_name = "earth_mask_30m_p"
     elif resolution_deg == 1/4:
         land_mask_file = Path("land_NaN_15m.grd")
         mask_name = "earth_mask_15m_p"
@@ -30,7 +33,7 @@ def find_masking_attributes(resolution_deg: float, base_path: Path) -> str:
         land_mask_file = Path("land_NaN_05m.grd")
         mask_name = "earth_mask_05m_p"
     else:
-        raise ValueError("Invalid grid resolution. Valid resolutions are 1, 1/4, 1/6 or 1/12 degrees.")
+        raise ValueError("Invalid grid resolution. Valid resolutions are 1, 1/2, 1/4, 1/6 or 1/12 degrees.")
     
     land_mask_file = base_path / land_mask_file
     if not land_mask_file.is_file():

@@ -1,4 +1,4 @@
-from . import sign_add, _landmask_coord_bool, block_mean_loop_time
+from . import sign_add, _landmask_coord_bool, block_mean_loop_time, block_median_loop_time
 from typing import Tuple, List
 import numpy as np
 import numpy.typing as npt
@@ -41,7 +41,7 @@ def block_mean_loop_time_(
     if len(data_time) != len(vals):
         raise ValueError(f"Number of times does not match number of values ({len(data_time)} != {len(vals)})")
 
-    return block_mean_loop_time(x_size, y_size, t_size, s_res, t_res, x_start, y_start, t_start, data_lon, data_lat, data_time, vals)
+    return block_median_loop_time(x_size, y_size, t_size, s_res, t_res, x_start, y_start, t_start, data_lon, data_lat, data_time, vals)
 
 def block_mean(
         x_boundary: Tuple[float, float],

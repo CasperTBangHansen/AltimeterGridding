@@ -94,3 +94,72 @@ def block_mean_loop_time(
     block_grid[:, 4:] = block_grid[:, 4:] / block_grid[:, 0:1]
     return block_grid[:, 1:]
 
+# pythran export nlogn_median(float32[:] or float64[:])
+def nlogn_median(l):
+    l = sorted(l)
+    if len(l) % 2 == 1:
+        return l[int((len(l)-1) / 2)]
+    else:
+        return 0.5 * (l[int(len(l) / 2 - 1)] + l[int(len(l) / 2)])
+
+# pythran export block_median_loop_time(int, int, int, float, int64[:], float, float, int64[:], float64[:], float64[:], int64[:], float64[:,:] or float32[:,:])
+def block_median_loop_time(
+    x_size,
+    y_size,
+    t_size,
+    s_res,
+    t_res,
+    start_pos_x,
+    start_pos_y,
+    start_pos_t,
+    data_lon,
+    data_lat,
+    data_time,
+    vals
+):
+    lons = start_pos_x + np.arange(0, x_size + 1) * s_res
+    lats = start_pos_y + np.arange(0, y_size + 1) * s_res
+    times = start_pos_t + np.arange(0, t_size + 1) * t_res
+
+    block_grid = []
+    for _ in range(4+vals.shape[1]):
+        block_grid.append([])
+
+    for k, variable in enumerate(vals.T):
+        var_list = []
+        count = 0
+        lookup = {}
+        for val, lon, lat, time in zip(variable, data_lon, data_lat, data_time):
+            idxlat = np.where(
+                (lat < lats + s_res/2) & (lat >= lats - s_res/2)
+            )[0]
+            idxlon = np.where(
+                (lon < lons + s_res/2) & (lon >= lons - s_res/2)
+            )[0]
+            idxtime = np.where(
+                (time < times + t_res/2) & (time >= times - t_res/2)
+            )[0]
+            
+            for i in idxlon:
+                for j in idxlat:
+                    for t in idxtime:
+                        grididx = (i * (x_size + 1) + j) * (t_size + 1) + t
+                        if grididx in lookup:
+                            tmpidx = lookup.get(grididx, 0)
+                            block_grid[0][tmpidx] += 1
+                            var_list[tmpidx].append(val)
+                        else:
+                            lookup[grididx] = count
+                            if len(block_grid[1]) == len(var_list):
+                                block_grid[0].append(1)
+                                block_grid[1].append(lons[i])
+                                block_grid[2].append(lats[j])
+                                block_grid[3].append(times[t])
+                            var_list.append([val])
+                            count += 1
+        medians = []
+        for l in var_list:
+            medians.append(nlogn_median(l))
+        block_grid[4+k] = medians
+    return np.array(block_grid)[1:].T
+
