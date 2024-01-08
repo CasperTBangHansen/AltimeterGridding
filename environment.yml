@@ -1,0 +1,43 @@
+name: grid
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - bcrypt
+  - cftime
+  - cycler
+  - dataclasses
+  - debugpy
+  - decorator
+  - geoalchemy2=0.13.0
+  - ipykernel
+  - ipython
+  - jupyter_client
+  - jupyter_core
+  - libblas
+  - libbrotlicommon
+  - libbrotlidec
+  - libbrotlienc
+  - libcblas
+  - libclang
+  - libclang-cpp
+  - liblapack
+  - libnetcdf
+  - matplotlib
+  - netcdf4
+  - numpy
+  - pip
+  - pydantic
+  - python=3.11.5
+  - pythran
+  - pytz
+  - scikit-gstat
+  - scikit-learn
+  - scipy
+  - sqlalchemy
+  - tqdm
+  - wheel
+  - xarray
+  - pip:
+      - haversine
+      - pythran-openblas

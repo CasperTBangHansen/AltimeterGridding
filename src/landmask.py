@@ -20,7 +20,7 @@ def find_masking_attributes(resolution_deg: float, base_path: Path) -> str:
     if resolution_deg == 1:
         land_mask_file = Path("land_NaN_01d.grd")
         mask_name = "earth_mask_01d_p"
-    if resolution_deg == 1/2:
+    elif resolution_deg == 1/2:
         land_mask_file = Path("land_NaN_30m.grd")
         mask_name = "earth_mask_30m_p"
     elif resolution_deg == 1/4:
