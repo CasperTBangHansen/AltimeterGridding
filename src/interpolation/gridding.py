@@ -4,9 +4,11 @@ from numpy.linalg import LinAlgError
 import numpy.typing as npt
 import xarray as xr
 from pathlib import Path
-from . import ExitCode, make_interp_time, block_mean, RBFInterpolator
+from . import ExitCode, make_interp_time, block_mean, RBFInterpolator, segment_grid
 from ..fileHandler import import_data, FileMapping
 from .. import config
+import multiprocessing
+import os
 
 def setup_gridding(
         interp_lons: npt.NDArray[np.float64],
@@ -29,6 +31,7 @@ def setup_gridding(
     ocean_mask_flat = ocean_mask.flatten()
 
     return grid, interp_coords[ocean_mask_flat], ocean_mask
+
 
 def process_grid(
         land_mask: xr.Dataset,
@@ -64,11 +67,27 @@ def process_grid(
         # Setup gridding variables
         grid, interp_coords, ocean_mask = setup_gridding(interp_lons, interp_lats, interp_time, land_mask, block_grid.shape[1]-3)
         
+        # Only use 50 nearest points for each point in the interpolation grid and segment accordingly
+        segmented_block_grid = segment_grid(block_grid, interp_coords, 50)
+
         # Grid the data
-        status, output = grid_inter(interp_coords, block_grid, interpolationParameters, time_distance)
-        if status != ExitCode.SUCCESS:
-            return status
-    
+        # status, output = grid_inter(interp_coords, block_grid, interpolationParameters, time_distance)
+        # if status != ExitCode.SUCCESS:
+        #     return status
+        arguments = [interp_coords, segmented_block_grid, [interpolationParameters]*len(interp_coords), [time_distance]*len(interp_coords)]
+        output = []
+        if hasattr(os, 'sched_getaffinity'):
+            n_processes = len(os.sched_getaffinity(0)) # type: ignore
+        else:
+            n_processes = None
+        with multiprocessing.Pool(n_processes) as pool:
+            status, out = pool.starmap(grid_inter, arguments)
+            output.append(out)
+            # status, output = grid_inter(interp_coords, block_grid, interpolationParameters, time_distance)
+            if status != ExitCode.SUCCESS:
+                return status
+        output = np.array(output)
+
         # Perform oceanmasking of the output grid
         grid[ocean_mask] = output
 
