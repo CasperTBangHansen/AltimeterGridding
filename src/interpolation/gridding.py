@@ -74,7 +74,9 @@ def process_grid(
         # status, output = grid_inter(interp_coords, block_grid, interpolationParameters, time_distance)
         # if status != ExitCode.SUCCESS:
         #     return status
-        arguments = [interp_coords, segmented_block_grid, [interpolationParameters]*len(interp_coords), [time_distance]*len(interp_coords)]
+        arguments = [
+            [ic, sbg, interpolationParameters, time_distance] for (ic, sbg) in zip(interp_coords, segmented_block_grid)
+        ]
         output = []
         if hasattr(os, 'sched_getaffinity'):
             n_processes = len(os.sched_getaffinity(0)) # type: ignore
