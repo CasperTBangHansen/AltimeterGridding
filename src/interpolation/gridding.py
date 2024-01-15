@@ -4,7 +4,7 @@ from numpy.linalg import LinAlgError
 import numpy.typing as npt
 import xarray as xr
 from pathlib import Path
-from . import ExitCode, make_interp_time, block_mean, RBFInterpolator, segment_grid
+from . import ExitCode, make_interp_time, block_mean, RBFInterpolator#, segment_grid
 from ..fileHandler import import_data, FileMapping
 from .. import config
 import multiprocessing
@@ -32,6 +32,39 @@ def setup_gridding(
 
     return grid, interp_coords[ocean_mask_flat], ocean_mask
 
+def haversine_distance(lat1, lat2, lon1, lon2):
+    return 2*6371*np.arcsin(
+        np.sqrt(
+            np.square(
+                np.sin((lat2-lat1)/2)
+            )
+            + np.cos(lat1)*np.cos(lat2)
+            * np.square(
+                np.sin((lon2-lon1)/2)
+            )
+        )
+    )
+
+# pythran export segment_grid(float32[::,:] or float64[::,:], float32[:,:] or float64[:,:], int)
+def segment_grid(block_grid, interp_coords, k):
+    segmented_block_grid = []
+    for int_lon, int_lat in zip(interp_coords[:,0], interp_coords[:,1]):
+        distance = haversine_distance(int_lat, block_grid[:, 1], int_lon, block_grid[:, 0])
+        sort_idx = np.argsort(distance)
+        if not isinstance(sort_idx, int):
+            sort_idx_k = sort_idx[:k]
+            block_grid_lon=block_grid[:,0][sort_idx_k]
+            block_grid_lat=block_grid[:,1][sort_idx_k]
+        else:
+            block_grid_lon=block_grid[sort_idx[0],0]
+            block_grid_lat=block_grid[sort_idx[0],1]
+        segmented_block_grid.append(
+            [
+                block_grid_lon, 
+                block_grid_lat, 
+                np.ones(k, dtype=np.float64)*interp_coords[0,2]]
+             )
+    return segmented_block_grid
 
 def process_grid(
         land_mask: xr.Dataset,

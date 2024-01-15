@@ -180,10 +180,8 @@ def haversine_distance(lat1, lat2, lon1, lon2):
 # pythran export segment_grid(float32[::,:] or float64[::,:], float32[:,:] or float64[:,:], int)
 def segment_grid(block_grid, interp_coords, k):
     segmented_block_grid = []
-    # distances = haversine_distance(interp_coords[:,1], block_grid[:, 1], interp_coords[:,0], block_grid[:, 0])
-    distances = [haversine_distance(lat, block_grid[:, 1], lon, block_grid[:, 0]) for (lon, lat) in zip(interp_coords[:,0],interp_coords[:,1])]
-    # for int_lon, int_lat in zip(interp_coords[:,0], interp_coords[:,1]):
-    for distance in distances:
+    for int_lon, int_lat in zip(interp_coords[:,0], interp_coords[:,1]):
+        distance = haversine_distance(int_lat, block_grid[:, 1], int_lon, block_grid[:, 0])
         sort_idx = np.argsort(distance)
         if not isinstance(sort_idx, int):
             sort_idx_k = sort_idx[:k]
