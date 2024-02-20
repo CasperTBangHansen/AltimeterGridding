@@ -60,7 +60,8 @@ def process_grid(
             gridParameters.latitude_boundary,
             data,
             gridParameters.blockmean_temporal_resolution,
-            gridParameters.blockmean_spatial_resolution
+            gridParameters.blockmean_spatial_resolution,
+            gridParameters.block_grid_type
         )
 
         # Setup gridding variables

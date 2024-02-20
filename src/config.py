@@ -43,6 +43,7 @@ class InterpolationParameters(pydantic.BaseModel):
 
 class GridParameters(pydantic.BaseModel):
     grid_resolution: float
+    block_grid_type: str
     blockmean_spatial_resolution: float
     blockmean_temporal_resolution: int
     interpolation_groups: List[List[str]]

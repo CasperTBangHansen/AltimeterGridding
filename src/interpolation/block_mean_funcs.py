@@ -32,7 +32,9 @@ def block_mean_loop_time_(
     data_lon: npt.NDArray[np.float64],
     data_lat: npt.NDArray[np.float64],
     data_time: npt.NDArray[np.int64],
-    vals) -> npt.NDArray[np.float64]:
+    vals,
+    grid_type: str
+    ) -> npt.NDArray[np.float64]:
 
     if len(data_lon) != len(vals):
         raise ValueError(f"Number of longitudes does not match number of values ({len(data_lon)} != {len(vals)})")
@@ -41,14 +43,20 @@ def block_mean_loop_time_(
     if len(data_time) != len(vals):
         raise ValueError(f"Number of times does not match number of values ({len(data_time)} != {len(vals)})")
 
-    return block_median_loop_time(x_size, y_size, t_size, s_res, t_res, x_start, y_start, t_start, data_lon, data_lat, data_time, vals)
+    if grid_type == "mean":
+        return block_mean_loop_time(x_size, y_size, t_size, s_res, t_res, x_start, y_start, t_start, data_lon, data_lat, data_time, vals)
+    elif grid_type == "median":
+        return block_median_loop_time(x_size, y_size, t_size, s_res, t_res, x_start, y_start, t_start, data_lon, data_lat, data_time, vals)
+    else:
+        raise ValueError(f"Block grid type {grid_type} does not match 'mean' or 'median'")
 
 def block_mean(
         x_boundary: Tuple[float, float],
         y_boundary: Tuple[float, float],
         data: xr.Dataset,
         temporal_resolution: int,
-        spatial_resolution: float
+        spatial_resolution: float,
+        grid_type: str
     ) -> npt.NDArray[np.float64]:
     """mean grid in blocks of resolution size"""
     
@@ -74,7 +82,8 @@ def block_mean(
         data_lon,
         data_lat,
         data_time,
-        vals
+        vals,
+        grid_type
     )
 
 def setup_spatial_grid_bounds(x_boundary: Tuple[float, float], y_boundary: Tuple[float, float], resolution: float) -> Tuple[float, float, int, int]:
