@@ -82,16 +82,21 @@ def block_mean_loop_time(
                     if grididx in lookup:
                         tmpidx = lookup.get(grididx, 0)
                         block_grid[tmpidx, 0] += 1
+                        block_grid[tmpidx, 1] += lon # new
+                        block_grid[tmpidx, 2] += lat # new
                         block_grid[tmpidx, 4:] += val
                     else:
                         lookup[grididx] = count
                         block_grid[count, 0] = 1
-                        block_grid[count, 1] = lons[i]
-                        block_grid[count, 2] = lats[j]
+                        # block_grid[count, 1] = lons[i]
+                        # block_grid[count, 2] = lats[j]
+                        block_grid[count, 1] = lon # new
+                        block_grid[count, 2] = lat # new
                         block_grid[count, 3] = times[t]
                         block_grid[count, 4:] = val
                         count += 1
     block_grid = block_grid[:count]
+    block_grid[:, 1:3] = block_grid[:, 1:3] / block_grid[:, 0:1]
     block_grid[:, 4:] = block_grid[:, 4:] / block_grid[:, 0:1]
     return block_grid[:, 1:]
 
