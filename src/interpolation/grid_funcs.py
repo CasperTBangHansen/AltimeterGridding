@@ -192,15 +192,19 @@ def segment_grid(block_grid, interp_coords, k):
             sort_idx_k = sort_idx[:k]
             block_grid_lon=block_grid[:,0][sort_idx_k]
             block_grid_lat=block_grid[:,1][sort_idx_k]
+            sla=block_grid[:,3][sort_idx_k]
         else:
             block_grid_lon=block_grid[sort_idx[0],0]
             block_grid_lat=block_grid[sort_idx[0],1]
+            sla=block_grid[sort_idx[0],3]
         segmented_block_grid.append(
             [
                 block_grid_lon, 
                 block_grid_lat, 
-                np.ones(k, dtype=np.float64)*interp_coords[0,2]]
-             )
+                np.ones(k, dtype=np.float64)*interp_coords[0,2],
+                sla
+            ]
+        )
     return segmented_block_grid
 
 
